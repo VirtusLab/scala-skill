@@ -9,33 +9,16 @@
 
 ---
 
-## Why generate at build time
-
-Tapir can serve OpenAPI documentation at runtime (via `SwaggerInterpreter`), but
-generating the YAML at build time lets frontend builds consume it to generate
-typed HTTP clients.
-
 ## Collecting endpoints for docs
 
-Each API module exposes its endpoints for docs via the `EndpointsForDocs` trait:
-
-```scala
-trait EndpointsForDocs:
-  def endpointsForDocs: List[AnyEndpoint]
-```
-
-Each module tags its endpoints for grouping in the docs:
+Each API module's companion object extends `EndpointsForDocs` (see
+[Compile-Time Dependency
+Injection](04-compile-time-dependency-injection.md)) and tags its endpoints:
 
 ```scala
 object UserApi extends EndpointsForDocs:
   override val endpointsForDocs = wireList[AnyEndpoint].map(_.tag("user"))
-
-object PasswordResetApi extends EndpointsForDocs:
-  override val endpointsForDocs = wireList[AnyEndpoint].map(_.tag("password-reset"))
 ```
-
-`wireList` collects all matching values — see [Compile-Time Dependency
-Injection](04-compile-time-dependency-injection.md).
 
 All endpoint lists are merged in a single place:
 
@@ -66,8 +49,6 @@ object OpenAPIDescription:
   Files.writeString(Paths.get(path), yaml)
 ```
 
-This runs without starting the HTTP server — no runtime configuration needed.
-
 ## Wiring as an sbt task
 
 In `build.sbt`, define a task key and wire the generator:
@@ -85,5 +66,3 @@ generateOpenAPIDescription := Def.taskDyn {
 }.value
 ```
 
-The generated `openapi.yaml` is written to the `target` directory, where the
-frontend build can pick it up to generate typed API stubs.

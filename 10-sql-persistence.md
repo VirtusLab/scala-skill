@@ -31,13 +31,9 @@ hikariConfig.setPassword(config.password.value)
 hikariConfig.setThreadFactory(Thread.ofVirtual().factory())
 ```
 
-`Thread.ofVirtual().factory()` configures HikariCP to use virtual threads for
-its internal operations.
-
 ## Schema migrations
 
-Flyway runs migrations at startup, with retry logic for when the database isn't
-yet available:
+Flyway runs migrations at startup with retry:
 
 ```scala
 @tailrec
@@ -73,9 +69,6 @@ case class User(
 )
 ```
 
-When the automatic `CamelToSnakeCase` mapping doesn't match the column name,
-`@SqlName` provides an explicit override.
-
 ## Custom type codecs
 
 Opaque types and custom types need `DbCodec` instances:
@@ -92,15 +85,11 @@ object Magnum:
   given DbCodec[LowerCased] = DbCodec.StringCodec.biMap(_.toLowerCased, _.toString)
 ```
 
-`biMap` creates a codec by transforming an existing one in both directions.
 `Id[T]`, `Hashed`, and `LowerCased` are opaque types over `String` (see below),
 so they use `StringCodec`. `Instant` is stored as `TIMESTAMPTZ` in PostgreSQL
 and mapped via `OffsetDateTime`.
 
 ## Opaque types for domain values
-
-Scala 3 opaque types prevent mixing up plain strings with domain-specific string
-types:
 
 ```scala
 object Strings:
@@ -114,11 +103,6 @@ object Strings:
     def toLowerCased[T]: LowerCased = s.toLowerCase(Locale.ENGLISH)
 ```
 
-`Id[T]` is phantom-typed — `Id[User]` and `Id[ApiKey]` are different types at
-compile time, preventing accidental misuse. `LowerCased` and `Hashed` use `<:
-String` so they can be used where a `String` is expected, but plain strings
-can't be used where `LowerCased` or `Hashed` is expected.
-
 ## Repository pattern
 
 `Repo` provides standard CRUD operations. `TableInfo` provides table/column
@@ -131,6 +115,9 @@ class UserModel:
 
   export userRepo.{insert, findById}
 
+  private def findBy(by: Spec[User])(using DbTx): Option[User] =
+    userRepo.findAll(by).headOption
+
   def findByEmail(email: LowerCased)(using DbTx): Option[User] =
     findBy(Spec[User].where(sql"${u.emailLowerCase} = $email"))
 
@@ -142,13 +129,6 @@ class UserModel:
 Custom queries use Magnum's `sql` interpolation — values become bind parameters,
 and `$u` / `${u.fieldName}` resolve to table and column names.
 
-`Spec` builds query specifications with `.where(...)` and `.limit(n)` modifiers:
-
-```scala
-def find(limit: Int)(using DbTx): Vector[Email] =
-  emailRepo.findAll(Spec[ScheduledEmails].limit(limit)).map(_.toEmail)
-```
-
 ## Transactions
 
 All database operations require a `DbTx` context parameter. The `DB` class
@@ -157,8 +137,5 @@ Handling](05-error-handling.md) for `transactEither`):
 
 ```scala
 def transact[T](f: DbTx ?=> T)(using NotGiven[T <:< Either[?, ?]]): T =
-  transact(transactor)(f)
+  com.augustnagro.magnum.transact(transactor)(f)
 ```
-
-The `DbTx ?=>` context function means the transaction is threaded implicitly —
-model methods receive it automatically when called inside a `transact` block.

@@ -9,7 +9,6 @@
 
 ## When decoding fails
 
-Tapir decodes incoming requests by matching them against endpoint descriptions.
 Inputs are decoded in order: method, path, query, headers, body. When any input
 fails to decode, the `DecodeFailureHandler` decides what to do: respond with an
 error, or skip this endpoint and try the next one.
@@ -119,7 +118,7 @@ the attribute, the first endpoint is skipped and the second one matches.
 ## Hiding authenticated endpoints
 
 `DefaultDecodeFailureHandler.hideEndpointsWithAuth` converts all error responses
-(both 400 and 401) to 404 for endpoints that contain auth inputs:
+to 404 for endpoints that contain auth inputs:
 
 ```scala
 val serverOptions = NettySyncServerOptions.customiseInterceptors
@@ -127,7 +126,6 @@ val serverOptions = NettySyncServerOptions.customiseInterceptors
   .options
 ```
 
-This prevents an attacker from discovering authenticated endpoints by probing
-paths — they get the same 404 response whether the endpoint exists or not. Note
-that timing attacks may still reveal endpoint existence.
+This prevents discovering authenticated endpoints by probing paths — the same
+404 response is returned whether the endpoint exists or not.
 

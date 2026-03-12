@@ -1,98 +1,69 @@
 # Direct Style Scala 3: A Practical Guide
 
-A hands-on guide to writing applications using Scala 3, Java 25 virtual threads,
-and direct style. Each chapter is a self-contained use-case using
+A reference for LLM agents implementing direct-style Scala 3 applications with
+virtual threads. Each chapter covers a single use-case using
 [Tapir](https://tapir.softwaremill.com), [Ox](https://ox.softwaremill.com), and
-the direct-style ecosystem. The patterns and code shown are starting points —
-adapt them to your application's specific requirements.
+the direct-style ecosystem.
 
 ## Chapters
 
-- [Resource Management](01-resource-management.md) — Tying resource lifecycle to
-  Ox concurrency scopes. Covers `useInScope`, `useCloseableInScope`,
-  reverse-order release, and how `OxApp` ensures cleanup on shutdown signals.
+- [Resource Management](01-resource-management.md) — `useInScope`,
+  `useCloseableInScope`, reverse-order release, scope-based cleanup.
 
-- [Background Processes](02-background-processes.md) — Running long-lived
-  background tasks within Ox's structured concurrency scopes. Covers `OxApp` as
-  the application entry point, `fork`/`forkUser` for daemon vs. user threads,
-  `forever`/`sleep` for periodic loops, and how scope termination triggers
-  orderly shutdown.
+- [Background Processes](02-background-processes.md) — `OxApp` entry point,
+  `fork`/`forkUser` for daemon vs. user threads, `forever`/`sleep` for periodic
+  loops, orderly shutdown.
 
-- [Type-Safe Configuration](03-type-safe-configuration.md) — Reading HOCON
-  configuration into Scala 3 case classes using PureConfig. Covers `derives
-  ConfigReader`, environment variable overrides, the `Sensitive` wrapper for
-  secrets, and validation at load time.
+- [Type-Safe Configuration](03-type-safe-configuration.md) — PureConfig with
+  `derives ConfigReader`, environment variable overrides, `Sensitive` wrapper,
+  load-time validation.
 
 - [Compile-Time Dependency Injection](04-compile-time-dependency-injection.md) —
-  Wiring the application's dependency graph at compile time using MacWire.
-  Covers `autowire` for automatic constructor resolution, `autowireMembersOf`
-  for config extraction, `wireList` for collecting endpoints, and how the same
-  wiring is used in production and tests.
+  MacWire `autowire`, `autowireMembersOf` for config extraction, `wireList` for
+  collecting endpoints.
 
-- [Error Handling](05-error-handling.md) — Representing application errors as
-  `Either` values using Ox's `either` blocks and `.ok()` short-circuiting.
-  Covers the `Fail` ADT pattern, composing validations, integrating `Either`
-  with database transactions (`transactEither`), converting exceptions with
-  `.catching`, and the nesting rules for `either` blocks.
+- [Error Handling](05-error-handling.md) — `Fail` ADT, Ox `either` blocks with
+  `.ok()` short-circuiting, `transactEither`, `.catching`, nesting rules.
 
-- [Error Output Customisation](06-error-output-customisation.md) — Making all
-  error responses (including decode failures and 404s) return consistent JSON.
-  Covers defining a bidirectional `Fail` → HTTP status code mapping, the
-  `failOutput` Tapir output, and customising `defaultHandlers` in server
-  options.
+- [Error Output Customisation](06-error-output-customisation.md) — JSON error
+  responses for all error types. Bidirectional `Fail` → HTTP status code
+  mapping, `failOutput`, `defaultHandlers` for decode failures and 404s.
 
-- [Decode Failure Handling](07-decode-failure-handling.md) — Customising how
-  Tapir handles requests that can't be decoded. Covers the
-  `DefaultDecodeFailureHandler` structure, the respond/message/response pipeline,
-  per-input routing control with `onDecodeFailureNextEndpoint`, custom failure
-  messages, and hiding authenticated endpoints.
+- [Decode Failure Handling](07-decode-failure-handling.md) —
+  `DefaultDecodeFailureHandler` customisation: respond/message/response pipeline,
+  `onDecodeFailureNextEndpoint`, custom failure messages,
+  `hideEndpointsWithAuth`.
 
-- [Authentication](08-authentication.md) — Bearer-token authentication using
-  Tapir's security model. Covers `secureEndpoint[T]`, the `AuthTokenOps[T]`
-  trait, the `Auth[T]` authenticator class, and `handleSecurity` for connecting
-  auth to endpoint logic.
+- [Authentication](08-authentication.md) — `secureEndpoint[T]`,
+  `AuthTokenOps[T]` trait, `Auth[T]` authenticator, `handleSecurity` wiring.
 
-- [HTTP Server Configuration](09-http-server-configuration.md) — Configuring the
-  HTTP server for production use. Covers security headers (clickjacking
-  prevention), CORS setup, serving static files for single-page applications,
-  and request cancellation handling for database-backed services.
+- [HTTP Server Configuration](09-http-server-configuration.md) — Security
+  headers, CORS, serving static files for SPAs, request cancellation,
+  `NettySyncServer` startup.
 
-- [SQL Persistence](10-sql-persistence.md) — Implementing database access with
-  Magnum and PostgreSQL. Covers table-mapped case classes, custom `DbCodec`
-  instances for opaque types, the `Repo`/`TableInfo` pattern, type-safe SQL
-  interpolation, Flyway migrations, and HikariCP with virtual threads.
+- [SQL Persistence](10-sql-persistence.md) — Magnum with PostgreSQL: `@Table`
+  case classes, `DbCodec` for opaque types, `Repo`/`TableInfo`, `sql`
+  interpolation, Flyway migrations, HikariCP.
 
-- [Version API](11-version-api.md) — Exposing build metadata via an HTTP
-  endpoint using sbt-buildinfo. Covers generating a `BuildInfo` object at
-  compile time with the git commit hash, and serving it from a simple Tapir
-  endpoint.
+- [Version API](11-version-api.md) — `sbt-buildinfo` generating `BuildInfo`
+  with git commit hash, served from a Tapir endpoint.
 
-- [Sending Emails](12-sending-emails.md) — Asynchronous email delivery with
-  transactional scheduling and background batch processing. Covers the
-  `EmailScheduler` trait, pluggable senders (SMTP, Mailgun, dummy), email
-  templates, and the `fork`/`forever` pattern for periodic background tasks.
+- [Sending Emails](12-sending-emails.md) — `EmailScheduler` trait, pluggable
+  senders (SMTP, Mailgun, dummy), email templates, background batch processing.
 
 - [Compile-Time OpenAPI Generation](13-compile-time-openapi-generation.md) —
-  Generating OpenAPI YAML at build time from Tapir endpoint descriptions, for
-  use as input to frontend client code generation — not the usual runtime
-  Swagger UI approach. Covers the `EndpointsForDocs` trait, the `@main`
-  generator function, and wiring it as an sbt task.
+  Build-time OpenAPI YAML generation for frontend client codegen (not runtime
+  Swagger UI). `EndpointsForDocs`, `@main` generator, sbt task wiring.
 
-- [Testing HTTP Endpoints](14-testing-http-endpoints.md) — Testing HTTP
-  endpoints without starting a server using sttp's stub backend and Tapir's
-  `SttpClientInterpreter`. Covers setting up `TapirSyncStubInterpreter`,
-  converting endpoint descriptions into type-safe HTTP requests, and testing
-  both public and secured endpoints.
+- [Testing HTTP Endpoints](14-testing-http-endpoints.md) —
+  `TapirSyncStubInterpreter` stub backend, `SttpClientInterpreter` for
+  type-safe requests, testing public and secured endpoints in-process.
 
-- [OpenTelemetry Observability](15-opentelemetry-observability.md) — Adding
-  tracing, metrics, and log correlation to a direct-style application using
-  OpenTelemetry. Covers SDK auto-configuration, Tapir server interceptors for
-  tracing and metrics, sttp client instrumentation, custom business metrics, JVM
-  runtime observers, propagating trace context across virtual threads with Ox,
-  and correlating logs via MDC.
+- [OpenTelemetry Observability](15-opentelemetry-observability.md) — SDK
+  auto-configuration, Tapir tracing/metrics interceptors, sttp client
+  instrumentation, custom metrics, `PropagatingVirtualThreadFactory` for
+  context propagation, MDC log correlation.
 
-- [Kafka Streaming](16-kafka-streaming.md) — Consuming and producing Kafka
-  messages using Ox Flows. Covers `KafkaFlow.subscribe`, `mapPar` for concurrent
-  processing, publishing with `KafkaDrain`, offset commits, transactional
-  produce-and-commit, and integration with structured concurrency for graceful
-  shutdown.
+- [Kafka Streaming](16-kafka-streaming.md) — `KafkaFlow.subscribe`, `mapPar`,
+  `KafkaDrain` publishing, offset commits, transactional produce-and-commit,
+  graceful shutdown.

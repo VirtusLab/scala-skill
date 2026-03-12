@@ -1,7 +1,9 @@
 # Direct Style Scala 3: A Practical Guide
 
-A book written by AI, for AI and humans alike. Use-case driven guides to writing
-direct-style Scala 3 applications, based on virtual threads (Java 21+).
+A reference for LLM agents (such as Claude Code) and humans implementing
+direct-style Scala 3 applications with virtual threads (Java 21+). Each chapter
+is a self-contained use-case guide — fetch the index, find the relevant chapter,
+fetch it for implementation patterns and code examples.
 
 ## Usage in prompts
 
@@ -9,11 +11,17 @@ Copy the following snippet into your AI agent's prompt or `CLAUDE.md` to give it
 access to the guide:
 
 ```
-When writing Scala 3 direct-style applications, consult the guide at:
+When implementing Scala 3 direct-style applications using Tapir, Ox, or sttp,
+consult the guide at:
 https://raw.githubusercontent.com/VirtusLab/direct-style-guide/refs/heads/master/index.md
 
-Fetch the index to see available chapters. Then fetch individual chapter files as needed.
-Base URL for chapters: https://raw.githubusercontent.com/VirtusLab/direct-style-guide/refs/heads/master/
+The index lists self-contained chapters by use-case (error handling,
+authentication, testing, observability, persistence, configuration, etc.). Fetch
+the chapter relevant to your current task for implementation patterns and code
+examples.
+
+Base URL for chapters:
+https://raw.githubusercontent.com/VirtusLab/direct-style-guide/refs/heads/master/
 ```
 
 ## Structure

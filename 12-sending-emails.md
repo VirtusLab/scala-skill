@@ -10,12 +10,6 @@
 
 ---
 
-## Architecture
-
-Emails are scheduled — stored in a database table — and sent asynchronously by a
-background process. If delivery fails, emails remain in the queue and are
-retried on the next batch.
-
 ## Scheduling emails
 
 The `EmailScheduler` trait defines a single method that inserts an email into
@@ -31,9 +25,6 @@ trait EmailScheduler:
 ```scala
 case class EmailData(recipient: String, subject: String, content: String)
 ```
-
-`(using DbTx)` ensures the email is scheduled within the same transaction as the
-business logic — if the transaction rolls back, the email is never scheduled.
 
 ## Email templates
 
@@ -117,10 +108,8 @@ class EmailService(...) extends EmailScheduler:
     }.discard
 ```
 
-`foreverPeriodically` uses the `fork` + `forever` + `sleep` pattern described in
-[Background Processes](02-background-processes.md) to create a daemon loop. The
-first fork sends queued emails in batches; the second updates a gauge metric
-with the current queue size.
+`foreverPeriodically` uses the pattern described in [Background
+Processes](02-background-processes.md).
 
 ## Batch sending
 
@@ -135,9 +124,8 @@ def sendBatch(): Unit =
   db.transact(emailModel.delete(emails.map(_.id)))
 ```
 
-The find-send-delete pattern is simple but effective: if sending fails partway
-through, unsent emails remain in the database and are picked up by the next
-batch. The batch size and interval are configurable via `EmailConfig`.
+If sending fails partway through, unsent emails remain in the database for the
+next batch.
 
 ## Testing emails
 

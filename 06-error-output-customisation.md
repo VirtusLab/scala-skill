@@ -9,14 +9,6 @@
 
 ---
 
-## The problem
-
-By default, Tapir returns errors as plain text. When a request can't be decoded
-(wrong content type, missing query parameter, malformed JSON), the server
-responds with a plain-text body like `Invalid value for: query parameter name`.
-For an API that returns JSON everywhere, this inconsistency is a problem —
-clients expect all responses, including errors, to be JSON.
-
 ## Defining a JSON error output
 
 All errors are returned as a JSON body with a single `error` field:
@@ -40,9 +32,6 @@ private val failOutput: EndpointOutput[Fail] =
     .and(jsonErrorOutOutput.map(_.error)(Error_OUT.apply))
     .map(responseDataToFail.tupled)(failToResponseData)
 ```
-
-`.map` on a Tapir output creates a bidirectional transformation. The first
-function decodes (response → domain), the second encodes (domain → response).
 
 The `failToResponseData` function maps each `Fail` variant to a status code and
 message:
@@ -68,9 +57,6 @@ val baseEndpoint: PublicEndpoint[Unit, Fail, Unit, Any] =
   endpoint.errorOut(failOutput)
 ```
 
-Endpoint implementations just return `Left(Fail.IncorrectInput("..."))` — the
-mapping to HTTP is handled once, centrally.
-
 ## Customising default error handlers
 
 Tapir has built-in error handling for situations that happen outside endpoint
@@ -88,5 +74,5 @@ val serverOptions: NettySyncServerOptions = NettySyncServerOptions.customiseInte
 
 `defaultHandlers` takes a function that wraps any error message string in the
 same `Error_OUT` JSON format used by endpoint error outputs.
-`notFoundWhenRejected = true` returns a 404 (as JSON) when the path matches an
-endpoint but the HTTP method doesn't, instead of a 405.
+`notFoundWhenRejected = true` returns a 404 (as JSON) when no endpoint matches
+the request, instead of propagating the rejection to the underlying server.

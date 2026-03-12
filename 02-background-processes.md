@@ -23,13 +23,8 @@ object Main extends OxApp.Simple:
     never
 ```
 
-`never` blocks the main fork indefinitely. Without it, the `run` method would
-return, the scope would end, and all forked processes (HTTP server, email
-sender) would be interrupted.
-
-`OxApp` handles SIGINT/SIGTERM by interrupting the root scope, which triggers
-orderly shutdown: all forks are interrupted, resources are released in reverse
-order.
+`never` blocks the main fork indefinitely — without it, `run` returns and the
+scope ends, interrupting all forks.
 
 ## Daemon forks with forever
 
@@ -52,10 +47,9 @@ configuration — each background process can define its own schedule.
 `fork` creates a daemon fork — it doesn't prevent the scope from ending (only
 user forks do). `forever` repeats the block indefinitely.
 
-The `try`/`catch` around the body is important: without it, a single exception
-would crash the fork and — because it's supervised — terminate the entire
-application. By catching `NonFatal` exceptions, the fork logs the error and
-continues to the next iteration.
+The `try`/`catch` is essential: without it, a single exception would crash the
+fork and terminate the application (supervised scope). Catching `NonFatal`
+lets the fork continue to the next iteration.
 
 ## Starting multiple background processes
 
@@ -73,21 +67,5 @@ def startProcesses()(using Ox): Unit =
   }.discard
 ```
 
-Background processes use `fork` — a supervised daemon fork. If the process fails
-unexpectedly (after the `try`/`catch`), the application terminates rather than
-silently continuing without it. Unlike `forkUser`, a daemon fork doesn't prevent
-the scope from ending.
-
-## The HTTP server as a fork
-
-The Netty HTTP server is also started within the scope:
-
-```scala
-def start()(using Ox): NettySyncServerBinding =
-  NettySyncServer(serverOptions, NettyConfig.default.host(config.host).port(config.port))
-    .addEndpoints(allEndpoints)
-    .start()
-```
-
-`NettySyncServer.start()` takes `(using Ox)` — it internally forks a user thread
-to accept connections. When the scope ends, the server is stopped gracefully.
+Both use `fork` (daemon). If a fork fails after the `try`/`catch`, the
+supervised scope terminates the application rather than silently continuing.

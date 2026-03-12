@@ -9,15 +9,6 @@
 
 ---
 
-## The testing approach
-
-The goal is to test the full endpoint stack — input decoding, security, error
-mapping, and business logic — without starting an HTTP server.
-`TapirSyncStubInterpreter` creates a stub `SyncBackend` that routes requests to
-matching endpoint logic. `SttpClientInterpreter` converts endpoint descriptions
-into type-safe sttp requests. Together they let you test in-process with the
-same types and error handling as real HTTP calls.
-
 ## Setting up the stub backend
 
 The stub backend is created from the list of server endpoints:
@@ -30,11 +21,6 @@ val serverStub: SyncBackend =
     .whenServerEndpointsRunLogic(allEndpoints)
     .backend()
 ```
-
-`whenServerEndpointsRunLogic` creates a backend where sending a request matches
-it against the endpoint list, runs the matched endpoint's full logic (including
-security), and returns the response. The `allEndpoints` list is the same one
-used by the production server.
 
 ## Converting endpoints to requests
 
@@ -53,16 +39,7 @@ class Requests(backend: SyncBackend):
       .send(backend)
 ```
 
-`toRequestThrowDecodeFailures` returns a function `Register_IN =>
-Request[Either[Fail, Register_OUT]]`. If the response can't be decoded at all
-(e.g., completely malformed), it throws an exception. But expected errors (like
-validation failures) are returned as `Left(Fail)`.
-
-The `basePath` simulates the context path that the server prepends to all
-endpoints.
-
-For **secured endpoints**, there's an extra step — providing the security input
-(the bearer token):
+For **secured endpoints**, provide the security input (the bearer token):
 
 ```scala
 def getUser(apiKey: String): Response[Either[Fail, GetUser_OUT]] =
@@ -72,11 +49,6 @@ def getUser(apiKey: String): Response[Either[Fail, GetUser_OUT]] =
     .apply(())            // regular input: Unit (GET with no body)
     .send(backend)
 ```
-
-`toSecureRequestThrowDecodeFailures` returns a curried function: first apply the
-security input (`Id[ApiKey]`), then the regular input. The security input is
-automatically placed in the `Authorization: Bearer` header — the same encoding
-specified in the endpoint description.
 
 There's also `toRequestThrowErrors` (note: *Errors*, not *DecodeFailures*) which
 throws on both decode failures and application errors. This is useful for test
@@ -123,5 +95,3 @@ back into the application's error type:
   }
 ```
 
-The full error pipeline runs: service error → HTTP status + JSON → decoded back
-to `Fail`.

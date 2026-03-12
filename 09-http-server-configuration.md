@@ -10,8 +10,7 @@
 
 ## Security headers
 
-HTTP responses should include headers that prevent common attacks. These are
-added to `baseEndpoint`, so every endpoint in the application inherits them:
+Anti-clickjacking headers added to `baseEndpoint`, inherited by all endpoints:
 
 ```scala
 val baseEndpoint: PublicEndpoint[Unit, Fail, Unit, Any] =
@@ -21,16 +20,13 @@ val baseEndpoint: PublicEndpoint[Unit, Fail, Unit, Any] =
     .out(header("Content-Security-Policy", "frame-ancestors 'none'"))
 ```
 
-Both headers prevent clickjacking — `X-Frame-Options` for older browsers,
-`Content-Security-Policy` for modern ones. Since these are Tapir output headers, they're included in every successful
-response. Error responses (decode failures, 404s) are handled separately by the
-server options — see [Error Output Customisation](06-error-output-customisation.md).
+These are Tapir output headers — included in every successful response. Error
+responses are handled separately by server options — see [Error Output
+Customisation](06-error-output-customisation.md).
 
 ## CORS
 
-Cross-Origin Resource Sharing headers are needed when the frontend is served
-from a different origin than the API (e.g., during development with a local dev
-server). Tapir provides a built-in CORS interceptor:
+Tapir provides a built-in CORS interceptor:
 
 ```scala
 val serverOptions: NettySyncServerOptions = NettySyncServerOptions.customiseInterceptors
@@ -46,7 +42,7 @@ For production, restrict the allowed origins:
 import sttp.tapir.server.interceptor.cors.{CORSConfig, CORSInterceptor}
 
 val corsInterceptor = CORSInterceptor.customOrThrow[Identity](
-  CORSConfig.default.allowOrigin("https://example.com")
+  CORSConfig.default.allowMatchingOrigins(_ == "https://example.com")
 )
 ```
 
@@ -71,21 +67,9 @@ val webappEndpoints = List(
 )
 ```
 
-`staticResourcesGetServerEndpoint` serves files from the `webapp` directory on
-the classpath. The `emptyInput` means it matches any path not already handled by
-API endpoints.
-
-`defaultFile(List("index.html"))` is the key for SPA support: when a request
-doesn't match any static file (e.g., `/login`, `/settings`), the server returns
-`index.html` instead of 404.
-
-These endpoints are added after the API endpoints:
-
-```scala
-val allEndpoints = apiEndpoints ++ webappEndpoints
-```
-
-Order matters — API endpoints are matched first.
+`defaultFile(List("index.html"))` provides SPA support: unmatched paths return
+`index.html`. These endpoints are added after API endpoints (`apiEndpoints ++
+webappEndpoints`) so API routes take priority.
 
 ## Request cancellation
 
@@ -101,9 +85,19 @@ val serverOptions: NettySyncServerOptions = NettySyncServerOptions.customiseInte
   .copy(interruptServerLogicWhenRequestCancelled = false)
 ```
 
-Setting `interruptServerLogicWhenRequestCancelled = false` lets cancelled
-requests run to completion. This avoids a specific issue with connection pools:
-when a JDBC call is interrupted mid-execution, the connection pool (e.g.,
-HikariCP) may mark that connection as broken. Re-establishing connections is
-more expensive than finishing the already-running request.
+`interruptServerLogicWhenRequestCancelled = false` lets cancelled requests run
+to completion — interrupted JDBC calls can cause HikariCP to mark connections as
+broken.
+
+## Starting the server
+
+```scala
+def start()(using Ox): NettySyncServerBinding =
+  NettySyncServer(serverOptions, NettyConfig.default.host(config.host).port(config.port))
+    .addEndpoints(allEndpoints)
+    .start()
+```
+
+`NettySyncServer.start()` takes `(using Ox)` — it registers the server as a
+resource in the current scope, stopping it on scope termination.
 

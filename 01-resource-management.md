@@ -6,35 +6,12 @@
 
 ---
 
-## Resources tied to scope lifecycle
-
-In a direct-style application, resources (database connections, HTTP clients,
-SDK instances) need to be released when the application shuts down. Ox ties
-resource lifecycle to concurrency scopes: resources are acquired when the scope
-starts and released — in reverse order — when the scope ends.
-
 ## useInScope and useCloseableInScope
 
-`useInScope` acquires a resource and registers a custom release function:
-
-```scala
-supervised {
-  val resource = useInScope(acquire())(release)
-  // use resource
-}
-// release is called automatically
-```
-
-`useCloseableInScope` is a shorthand for resources that implement
-`AutoCloseable`:
-
-```scala
-supervised {
-  val db = useCloseableInScope(DB.createTestMigrate(config.db))
-  // use db
-}
-// db.close() is called automatically
-```
+`useInScope(acquire)(release)` registers a resource and its release function
+within the current scope. `useCloseableInScope` is a shorthand for
+`AutoCloseable` resources. Resources are released in reverse acquisition order
+when the scope ends.
 
 ## Application resource setup
 
@@ -58,29 +35,6 @@ def create(using Ox): Dependencies =
   create(config, otel, sttpBackend, db, DefaultClock)
 ```
 
-When the application receives SIGTERM:
-1. The root scope is interrupted
-2. All forks (HTTP server, background processes) are interrupted and awaited
-3. Resources are released in reverse order: first the database pool, then the
-   sttp backend
-
-Resources are released in reverse acquisition order — later resources may depend
-on earlier ones. For example, the HTTP server (which uses the database) is
-stopped before the database connection pool is closed.
-
-## OxApp ensures cleanup
-
-`OxApp` is the entry point that makes this work. It installs signal handlers for
-SIGINT/SIGTERM and initiates orderly scope termination:
-
-```scala
-object Main extends OxApp.Simple:
-  override def run(using Ox): Unit =
-    val deps = Dependencies.create  // acquires resources via useInScope
-    deps.emailService.startProcesses()
-    deps.httpApi.start().discard
-    never  // blocks until interrupted
-```
-
-`OxApp` converts signals and `sys.exit()` into scope interruptions, ensuring
-resources are released.
+On scope termination (e.g., SIGTERM via `OxApp` — see [Background
+Processes](02-background-processes.md)), resources are released in reverse
+acquisition order: first the database pool, then the sttp backend.

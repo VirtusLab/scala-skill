@@ -24,10 +24,8 @@ case class PasswordResetConfig(resetLinkPattern: String, codeValid: Duration) de
 ```
 
 `derives ConfigReader` auto-generates a reader with `camelCase` → `kebab-case`
-key mapping (e.g., `migrateOnStart` reads from `migrate-on-start`).
-
-Standard types (`String`, `Int`, `Boolean`, `Duration`, `FiniteDuration`) are
-supported out of the box. Custom types need a `given ConfigReader` instance.
+key mapping (e.g., `migrateOnStart` reads from `migrate-on-start`). Custom
+types need a `given ConfigReader` instance.
 
 ## Nested configuration
 
@@ -74,9 +72,6 @@ api {
 }
 ```
 
-The `${?VAR}` syntax means: if the environment variable is set, use its value;
-otherwise, keep the default. This is a HOCON feature, not PureConfig-specific.
-
 ## Sensitive values
 
 Passwords and API keys use a `Sensitive` wrapper that overrides `toString` to
@@ -90,9 +85,6 @@ object Sensitive:
   given ConfigReader[Sensitive] = pureconfig.ConfigReader[String].map(Sensitive(_))
 ```
 
-The `given ConfigReader[Sensitive]` instance lets PureConfig read `Sensitive`
-fields from plain strings in the config file.
-
 ## Loading and logging
 
 Configuration is loaded once at startup:
@@ -101,10 +93,6 @@ Configuration is loaded once at startup:
 object Config:
   def read: Config = ConfigSource.default.loadOrThrow[Config]
 ```
-
-`loadOrThrow` reads from the default source (`application.conf` on the
-classpath, with system property and environment variable overrides) and throws
-an exception if any required field is missing or has the wrong type.
 
 The config is logged at startup for debugging, with `Sensitive` values masked:
 
@@ -118,8 +106,8 @@ def log(config: Config): Unit =
     |""".stripMargin)
 ```
 
-`Sensitive` values are automatically masked. The production code also logs build
-metadata here — see [Version API](11-version-api.md).
+The production code also logs build metadata here — see [Version
+API](11-version-api.md).
 
 ## Validation at load time
 

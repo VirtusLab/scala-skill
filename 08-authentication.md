@@ -23,33 +23,9 @@ def secureEndpoint[T]: Endpoint[Id[T], Unit, Fail, Unit, Any] =
   baseEndpoint.securityIn(auth.bearer[String]().map(_.asId[T])(_.toString))
 ```
 
-`Id[T]` is an opaque type over `String`, phantom-typed to prevent mixing up IDs
-of different entities at compile time:
-
-```scala
-opaque type Id[T] = String
-
-extension (s: String)
-  def asId[T]: Id[T] = s
-```
-
-`secureEndpoint[T]` reads a bearer token from the `Authorization` header and
-parses it as an `Id[T]`.
-
-The type parameter `T` is the token type. For API key–protected endpoints, you
-use `secureEndpoint[ApiKey]`, which produces `Endpoint[Id[ApiKey], Unit, Fail,
-Unit, Any]` — the security input is `Id[ApiKey]`.
-
-Endpoints that don't require authentication use `baseEndpoint` directly:
-
-```scala
-val loginEndpoint = baseEndpoint.post
-  .in("user" / "login")
-  .in(jsonBody[Login_IN])
-  .out(jsonBody[Login_OUT])
-```
-
-Secured endpoints start from `secureEndpoint[ApiKey]`:
+`Id[T]` is an opaque type over `String` (see [SQL
+Persistence](10-sql-persistence.md)). Secured endpoints use
+`secureEndpoint[ApiKey]`:
 
 ```scala
 val getUserEndpoint = secureEndpoint[ApiKey].get
@@ -112,10 +88,6 @@ class Auth[T](authTokenOps: AuthTokenOps[T], db: DB, clock: Clock):
   private def expired(token: T): Boolean = clock.now().isAfter(authTokenOps.validUntil(token))
 ```
 
-The random sleep in the not-found branch prevents timing attacks — an attacker
-can't distinguish "token missing" from "token exists but invalid" by measuring
-response times.
-
 ## Wiring auth into endpoints
 
 `handleSecurity` connects `Auth[ApiKey]` to the endpoint — it validates the
@@ -129,8 +101,7 @@ class UserApi(auth: Auth[ApiKey], userService: UserService, db: DB, metrics: Met
     e.handleSecurity(authData => auth(authData))
 ```
 
-`handleSecurity` takes a function `Id[ApiKey] => Either[Fail, Id[User]]` — which
-is what `auth.apply` provides. Secured endpoints then look like:
+Secured endpoints then look like:
 
 ```scala
 private val getUserServerEndpoint = authedEndpoint(getUserEndpoint).handle { id => (_: Unit) =>

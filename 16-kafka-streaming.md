@@ -8,9 +8,6 @@
 
 ## Consuming from Kafka
 
-Kafka integration is built on Ox Flows — lazy, asynchronous data pipelines that
-execute when a terminal operation (`runDrain`, `runForeach`) is called.
-
 `KafkaFlow.subscribe` creates a `Flow[ReceivedMessage[K, V]]` from a Kafka
 topic:
 
@@ -40,6 +37,7 @@ Flow.fromIterable(messages)
   .pipe(KafkaDrain.runPublish(producerSettings))
 
 // As an intermediate step — returns RecordMetadata per message
+import ox.kafka.KafkaStage.*
 Flow.fromIterable(messages)
   .map(msg => ProducerRecord[String, String]("my_topic", msg))
   .mapPublish(producerSettings)
@@ -47,9 +45,6 @@ Flow.fromIterable(messages)
 ```
 
 ## Consuming, processing, and committing offsets
-
-A common pattern: consume messages, process them (possibly in parallel), and
-commit offsets:
 
 ```scala
 supervised:
@@ -87,21 +82,6 @@ supervised:
 Kafka transactions to atomically publish the output records and commit the input
 offsets.
 
-## Integration with structured concurrency
-
-Kafka consumers run within Ox scopes. When the scope ends (e.g., application
-shutdown), the consumer is closed gracefully — pending offsets are committed and
-the consumer group rebalances.
-
-```scala
-object Main extends OxApp.Simple:
-  override def run(using Ox): Unit =
-    KafkaFlow
-      .subscribe(settings, "my_topic")
-      .mapPar(5)(process)
-      .runDrain()
-```
-
 `runDrain()` blocks indefinitely (the Kafka consumer keeps polling), so there's
-no need for `never`. On SIGTERM, `OxApp` interrupts the scope, closing the
-consumer gracefully.
+no need for `never` in `OxApp`. On scope termination, consumers are closed
+gracefully.

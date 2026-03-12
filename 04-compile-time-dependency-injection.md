@@ -7,14 +7,6 @@
 
 ---
 
-## Why compile-time DI
-
-MacWire resolves dependencies at compile time — missing bindings, circular
-dependencies, and type mismatches are compilation errors, with no runtime
-overhead. It provides three macros: `autowire` constructs a dependency graph by
-matching types, `wireList` collects all values of a given type into a list, and
-`autowireMembersOf` extracts fields from an object as individual dependencies.
-
 ## The dependency graph
 
 The entire application's dependency graph is constructed in a single
@@ -94,23 +86,4 @@ object UserApi extends EndpointsForDocs:
   override val endpointsForDocs = wireList[AnyEndpoint].map(_.tag("user"))
 ```
 
-## Infrastructure as constructor parameters
-
-The `Dependencies.create` method takes infrastructure as parameters rather than
-constructing it internally:
-
-```scala
-def create(config: Config, otel: OpenTelemetry, sttpBackend: SyncBackend,
-           db: DB, clock: Clock): Dependencies
-```
-
-This is what makes testing possible — tests call the same method with test
-implementations:
-
-```scala
-Dependencies.create(TestConfig, OpenTelemetry.noop(), HttpClientSyncBackend.stub, currentDb, testClock)
-```
-
-The dependency graph is identical in production and tests. Only the leaf
-infrastructure (database, clock, HTTP backend, telemetry) differs.
 

@@ -50,16 +50,11 @@ private def initializeOtel(): OpenTelemetry =
     .tap(OpenTelemetryAppender.install)
 ```
 
-This does three things: (1) creates a fully configured `OpenTelemetry` instance
-from `OTEL_*` environment variables (noop exporters when unset), (2) registers
-JVM runtime metric observers (CPU, memory, GC, threads, classes), and (3) hooks
-Logback into OpenTelemetry so log records are exported as log signals.
+Creates a configured `OpenTelemetry` instance from `OTEL_*` environment
+variables (noop when unset), registers JVM runtime metric observers, and hooks
+Logback into OpenTelemetry for log export.
 
 ## Server-side tracing
-
-Tapir's server interceptors form a pipeline that processes every request. The
-tracing interceptor creates an OpenTelemetry span for each incoming HTTP
-request:
 
 ```scala
 import sttp.shared.Identity
@@ -73,35 +68,8 @@ val serverOptions: NettySyncServerOptions = NettySyncServerOptions.customiseInte
   .options
 ```
 
-`OpenTelemetryTracing(otel)` is **prepended** — it runs first in the interceptor
-chain. This is important: it extracts the trace context from incoming request
-headers (W3C `traceparent` format) and creates a span before any other
-interceptor runs. This way, all subsequent processing (including business logic)
-happens within the span's context.
-
-The span is automatically populated with:
-- HTTP method (`http.request.method`)
-- URL path (`url.path`)
-- Response status code (`http.response.status_code`)
-- Request/response sizes
-
-### Interceptor ordering
-
-The final interceptor chain is assembled by `CustomiseInterceptors` in a fixed
-order:
-
-1. **Prepended interceptors** — in the order `prependInterceptor` is called
-2. **Metrics** — `OpenTelemetryMetrics`
-3. **Exception/logging handlers** — (from `defaultHandlers`)
-4. **CORS** — handles preflight requests
-5. **Reject handler** — 404 for unmatched requests (from `defaultHandlers`)
-6. **Decode failure handler** — error formatting (from `defaultHandlers`)
-
-The `prependInterceptor` calls maintain their call order — `OpenTelemetryTracing`
-runs before `SetTraceIdInMDCInterceptor` because it's prepended first.
-`.defaultHandlers(...)` customises the behaviour of the exception, reject, and
-decode failure handlers, but doesn't change where they sit in the chain — their
-positions are fixed by the framework.
+`OpenTelemetryTracing(otel)` is **prepended** so it extracts the `traceparent`
+header and creates a span before any other interceptor runs.
 
 ## Server-side metrics
 
@@ -116,8 +84,7 @@ positions are fixed by the framework.
 
 ## Client-side instrumentation
 
-Outgoing HTTP calls (e.g., to external APIs) are instrumented by wrapping sttp's
-backend:
+Outgoing HTTP calls are instrumented by wrapping sttp's backend:
 
 ```scala
 val sttpBackend = Slf4jLoggingBackend(
@@ -131,11 +98,9 @@ val sttpBackend = Slf4jLoggingBackend(
 )
 ```
 
-The backends compose as wrappers, innermost first:
-`OpenTelemetryTracingBackend` creates a child span for each outgoing request and
-injects the `traceparent` header, enabling distributed tracing.
-`OpenTelemetryMetricsBackend` records client-side HTTP metrics. Child spans are
-automatically linked to the server span, producing end-to-end traces.
+Wrappers compose innermost first: `OpenTelemetryTracingBackend` creates child
+spans and injects `traceparent`, `OpenTelemetryMetricsBackend` records client
+metrics.
 
 ## Custom business metrics
 
@@ -160,8 +125,6 @@ class Metrics(otel: OpenTelemetry):
       .build()
 ```
 
-Usage in endpoint logic is straightforward — just call the metric:
-
 ```scala
 private val registerUserServerEndpoint = registerUserEndpoint.handle { data =>
   val apiKeyResult = db.transactEither(
@@ -176,12 +139,8 @@ In tests, `OpenTelemetry.noop()` is passed, so metric calls become no-ops.
 
 ## Trace context propagation with Ox
 
-Virtual threads created within Ox scopes don't automatically inherit the
-OpenTelemetry context from the parent thread. This is a problem: if a Tapir
-endpoint handler forks work using `ox.fork`, the forked code won't have access
-to the current span.
-
-The fix is `PropagatingVirtualThreadFactory` from the `ox otel-context` module:
+`PropagatingVirtualThreadFactory` from the `ox otel-context` module propagates
+OpenTelemetry context to virtual threads created by Ox:
 
 ```scala
 import ox.otel.context.PropagatingVirtualThreadFactory
@@ -197,27 +156,13 @@ object Main extends OxApp.Simple:
     never
 ```
 
-`PropagatingVirtualThreadFactory` creates virtual threads that automatically
-copy the OpenTelemetry context from the thread that created them. This means:
-
-- When Tapir's tracing interceptor sets up a span on the request-handling
-  thread, and the handler forks work using `supervised` / `fork`, the forked
-  threads see the same span context.
-- Outgoing HTTP calls made from forked threads will correctly produce child
-  spans linked to the request span.
-- Log statements from forked threads will carry the correct trace ID in the MDC.
-
 Without this factory, forked threads would have an empty context, producing
 orphaned spans and logs without trace correlation.
 
 ## Log correlation via MDC
 
-The MDC (Mapped Diagnostic Context) is a per-thread map of key-value pairs that
-logging frameworks include in log output. The challenge with virtual threads:
-standard MDC (`ThreadLocal`-based) breaks when work moves between threads.
-
-Ox solves this with `InheritableMDC`, which propagates MDC values across virtual
-threads within `supervised` scopes. The application initializes it at startup:
+`InheritableMDC` from Ox propagates MDC values across virtual threads (standard
+`ThreadLocal`-based MDC breaks with virtual threads):
 
 ```scala
 object Main extends OxApp.Simple:
@@ -243,23 +188,13 @@ object SetTraceIdInMDCInterceptor extends RequestInterceptor[Identity]:
     }
 ```
 
-This interceptor:
-
-1. Reads the current span (set by `OpenTelemetryTracing` which runs earlier in
-   the chain).
-2. Extracts the trace ID string.
-3. Wraps the remaining request handling inside
-   `InheritableMDC.unsupervisedWhere`, which sets `traceId` in the MDC for the
-   duration of the block — including any virtual threads forked within it.
-
-The result: every log line produced while handling a request includes the trace
-ID. In a Logback pattern like `%d [%X{traceId}] %msg%n`, you get:
+Every log line produced while handling a request includes the trace ID. In a
+Logback pattern like `%d [%X{traceId}] %msg%n`:
 
 ```
 2025-03-10 12:34:56 [abc123def456] Registering new user: john@example.com
 2025-03-10 12:34:56 [abc123def456] Creating a new api key for user 789
 ```
 
-The same trace ID appears in the span sent to your tracing backend, enabling you
-to click a trace in Jaeger/Grafana and see the corresponding log lines.
+The same trace ID appears in exported spans, enabling trace-to-log correlation.
 

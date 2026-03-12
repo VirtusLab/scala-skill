@@ -9,10 +9,6 @@
 
 ## Errors as values
 
-In direct-style Scala 3, application errors are represented as `Either` values
-rather than exceptions. Exceptions are reserved for bugs and unexpected failures
-— things that should crash the scope or propagate to a supervisor.
-
 The application defines a `Fail` ADT as the application-wide error type:
 
 ```scala
@@ -34,9 +30,8 @@ Customisation](06-error-output-customisation.md)).
 
 ## The `either` block
 
-Composing multiple `Either`-returning operations with `for`/`yield` or pattern
-matching gets verbose. Ox provides `either` blocks that let you write sequential
-code that short-circuits on the first error:
+Ox provides `either` blocks for composing multiple `Either`-returning operations
+with short-circuiting:
 
 ```scala
 import ox.either
@@ -50,14 +45,8 @@ def login(loginOrEmail: String, password: String, apiKeyValid: Option[Duration])
   apiKeyService.create(user.id, apiKeyValid.getOrElse(config.defaultApiKeyValid))
 ```
 
-`.ok()` unwraps a `Right` value and returns it. If the `Either` is a `Left`, the
-block short-circuits immediately, returning that `Left` as the result of the
-entire `either` block. The last expression in the block (here,
-`apiKeyService.create(...)`) is the success value, automatically wrapped in
-`Right`.
-
-Unlike `for`/`yield`, the `either` block allows intermediate results to be used
-across multiple subsequent operations without nesting.
+`.ok()` unwraps a `Right` or short-circuits the `either` block with the `Left`.
+The last expression is the success value, wrapped in `Right`.
 
 ## Composing validations
 
@@ -91,20 +80,18 @@ operations that can fail with application errors and those that cannot:
 class DB(dataSource: DataSource & Closeable):
   /** Runs `f` in a transaction. Committed if the result is a Right, rolled back otherwise. */
   def transactEither[E, T](f: DbTx ?=> Either[E, T]): Either[E, T] =
-    try transact(transactor)(Right(f.fold(e => throw LeftException(e), identity)))
+    try com.augustnagro.magnum.transact(transactor)(Right(f.fold(e => throw LeftException(e), identity)))
     catch case e: LeftException[E] @unchecked => Left(e.left)
 
   /** Runs `f` in a transaction. The result cannot be an Either. Committed if no exception. */
   def transact[T](f: DbTx ?=> T)(using NotGiven[T <:< Either[?, ?]]): T =
-    transact(transactor)(f)
+    com.augustnagro.magnum.transact(transactor)(f)
 ```
 
 `transactEither` ensures that a `Left` result triggers a rollback.
 
-The `NotGiven[T <:< Either[?, ?]]` constraint on `transact` is a compile-time
-guard: it prevents accidentally using `transact` when the body returns an
-`Either`, which would commit the transaction even on a `Left`. You must use
-`transactEither` instead.
+The `NotGiven` constraint makes it a compile error to use `transact` with an
+`Either`-returning body — use `transactEither` instead.
 
 Endpoint handlers use `transactEither` to wrap service calls (see the
 [Authentication](08-authentication.md) chapter for how these handlers are

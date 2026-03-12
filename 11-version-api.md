@@ -10,9 +10,6 @@
 
 ## Build info generation
 
-The `sbt-buildinfo` plugin generates a `BuildInfo` object during compilation
-that contains project metadata:
-
 ```scala
 buildInfoKeys := Seq[BuildInfoKey](
   name,
@@ -29,10 +26,6 @@ buildInfoOptions += BuildInfoOption.ToMap,
 buildInfoPackage := "com.softwaremill.bootzooka.version",
 buildInfoObject := "BuildInfo"
 ```
-
-This generates `com.softwaremill.bootzooka.version.BuildInfo` with fields like
-`name`, `version`, `scalaVersion`, `sbtVersion`, and `lastCommitHash`. `ToMap`
-and `ToJson` add `toMap` and `toJson` methods to the generated object.
 
 ## The version endpoint
 
@@ -59,7 +52,3 @@ object VersionApi extends EndpointsForDocs:
   case class Version_OUT(buildSha: String) derives ConfiguredJsonValueCodec, Schema
 ```
 
-`handleSuccess` is used instead of `handle` because this endpoint cannot fail —
-it always returns the build hash.
-
-The endpoint is tagged as `"admin"` for grouping in the generated API docs.
