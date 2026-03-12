@@ -58,27 +58,15 @@ def create(using Ox): Dependencies =
   create(config, otel, sttpBackend, db, DefaultClock)
 ```
 
-The sttp backend is wrapped with `useInScope` and a custom `_.close()` release
-function. The database connection pool uses `useCloseableInScope` since `DB`
-extends `AutoCloseable`.
-
 When the application receives SIGTERM:
 1. The root scope is interrupted
 2. All forks (HTTP server, background processes) are interrupted and awaited
 3. Resources are released in reverse order: first the database pool, then the
    sttp backend
 
-## Release ordering
-
-Resources are released in reverse acquisition order. This is important because
-later resources may depend on earlier ones. For example, the HTTP server (which
-uses the database) is stopped before the database connection pool is closed.
-
-The sequence in the example application:
-1. **Acquire:** config → OpenTelemetry SDK → sttp backend → database pool
-2. **Start:** background processes → HTTP server (via forks)
-3. **Shutdown:** interrupt forks → stop HTTP server → stop background processes
-   → close database pool → close sttp backend
+Resources are released in reverse acquisition order — later resources may depend
+on earlier ones. For example, the HTTP server (which uses the database) is
+stopped before the database connection pool is closed.
 
 ## OxApp ensures cleanup
 
@@ -94,6 +82,5 @@ object Main extends OxApp.Simple:
     never  // blocks until interrupted
 ```
 
-Without `OxApp`, a `sys.exit()` or unhandled signal would terminate the JVM
-without releasing resources. `OxApp` converts these into scope interruptions,
-which trigger the cleanup chain.
+`OxApp` converts signals and `sys.exit()` into scope interruptions, ensuring
+resources are released.

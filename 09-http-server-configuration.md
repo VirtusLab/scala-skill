@@ -21,13 +21,8 @@ val baseEndpoint: PublicEndpoint[Unit, Fail, Unit, Any] =
     .out(header("Content-Security-Policy", "frame-ancestors 'none'"))
 ```
 
-- **`X-Frame-Options: DENY`** — prevents the page from being embedded in an
-  `<iframe>`, blocking clickjacking attacks.
-- **`Content-Security-Policy: frame-ancestors 'none'`** — the CSP equivalent,
-  supported by modern browsers that ignore `X-Frame-Options` in favour of CSP.
-
-Both headers are set because older browsers may only support one or the other.
-Since these are Tapir output headers, they're included in every successful
+Both headers prevent clickjacking — `X-Frame-Options` for older browsers,
+`Content-Security-Policy` for modern ones. Since these are Tapir output headers, they're included in every successful
 response. Error responses (decode failures, 404s) are handled separately by the
 server options — see [Error Output Customisation](06-error-output-customisation.md).
 
@@ -44,7 +39,7 @@ val serverOptions: NettySyncServerOptions = NettySyncServerOptions.customiseInte
   .options
 ```
 
-`CORSInterceptor.default[Identity]` allows all origins, methods, and headers.
+`CORSInterceptor.default[Identity]` allows all origins and common HTTP methods.
 For production, restrict the allowed origins:
 
 ```scala
@@ -82,8 +77,7 @@ API endpoints.
 
 `defaultFile(List("index.html"))` is the key for SPA support: when a request
 doesn't match any static file (e.g., `/login`, `/settings`), the server returns
-`index.html` instead of 404. The frontend's router then handles the path
-client-side.
+`index.html` instead of 404.
 
 These endpoints are added after the API endpoints:
 
@@ -91,8 +85,7 @@ These endpoints are added after the API endpoints:
 val allEndpoints = apiEndpoints ++ webappEndpoints
 ```
 
-Order matters — API endpoints are matched first. Only unmatched requests fall
-through to static file serving.
+Order matters — API endpoints are matched first.
 
 ## Request cancellation
 
@@ -114,6 +107,3 @@ when a JDBC call is interrupted mid-execution, the connection pool (e.g.,
 HikariCP) may mark that connection as broken. Re-establishing connections is
 more expensive than finishing the already-running request.
 
-This is a direct-style concern — with virtual threads, each request handler runs
-on its own thread, and interrupting it means interrupting the virtual thread
-while it may be mid-transaction.

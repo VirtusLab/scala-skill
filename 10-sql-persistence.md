@@ -32,13 +32,12 @@ hikariConfig.setThreadFactory(Thread.ofVirtual().factory())
 ```
 
 `Thread.ofVirtual().factory()` configures HikariCP to use virtual threads for
-its internal operations. This is important for direct-style code: blocking JDBC
-calls on virtual threads don't consume OS threads.
+its internal operations.
 
 ## Schema migrations
 
 Flyway runs migrations at startup, with retry logic for when the database isn't
-yet available (common in containerised deployments):
+yet available:
 
 ```scala
 @tailrec
@@ -74,9 +73,8 @@ case class User(
 )
 ```
 
-`SqlNameMapper.CamelToSnakeCase` automatically converts field names to
-snake_case column names. When the mapping isn't a straightforward conversion,
-`@SqlName` provides an explicit column name.
+When the automatic `CamelToSnakeCase` mapping doesn't match the column name,
+`@SqlName` provides an explicit override.
 
 ## Custom type codecs
 
@@ -141,13 +139,10 @@ class UserModel:
       .update.run().discard
 ```
 
-`export userRepo.{insert, findById}` re-exports methods from the repo, avoiding
-boilerplate wrappers. Custom queries use Magnum's `sql` string interpolation,
-which is SQL-injection safe — interpolated values become bind parameters, and
-`$u` / `${u.fieldName}` interpolate table and column names.
+Custom queries use Magnum's `sql` interpolation — values become bind parameters,
+and `$u` / `${u.fieldName}` resolve to table and column names.
 
-`Spec[User].where(...)` creates a query specification that can be passed to
-`findAll`. The `.limit(n)` modifier restricts the result set:
+`Spec` builds query specifications with `.where(...)` and `.limit(n)` modifiers:
 
 ```scala
 def find(limit: Int)(using DbTx): Vector[Email] =
@@ -167,4 +162,3 @@ def transact[T](f: DbTx ?=> T)(using NotGiven[T <:< Either[?, ?]]): T =
 
 The `DbTx ?=>` context function means the transaction is threaded implicitly —
 model methods receive it automatically when called inside a `transact` block.
-There is no need to pass a connection or transaction object explicitly.

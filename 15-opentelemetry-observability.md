@@ -50,38 +50,10 @@ private def initializeOtel(): OpenTelemetry =
     .tap(OpenTelemetryAppender.install)
 ```
 
-This does three things:
-
-1. **SDK setup** — `AutoConfiguredOpenTelemetrySdk.initialize()` creates a fully
-   configured `OpenTelemetry` instance. Without `OTEL_*` environment variables,
-   it defaults to noop exporters (no data is sent anywhere). In production, you
-   set `OTEL_EXPORTER_OTLP_ENDPOINT=http://collector:4318` to send telemetry to
-   a collector.
-
-2. **JVM runtime metrics** — The `opentelemetry-runtime-telemetry-java8` library
-   provides pre-built observers for class loading, CPU usage, memory pools,
-   thread counts, and garbage collection. These are registered once at startup
-   and automatically report metrics at the SDK's configured interval.
-
-3. **Logback integration** — `OpenTelemetryAppender.install` hooks into Logback
-   so that log records are sent as OpenTelemetry log signals. This means logs,
-   traces, and metrics all flow through the same pipeline and can be correlated
-   in a backend like Grafana or Jaeger.
-
-### OTLP transport
-
-The build explicitly excludes the default OkHttp-based OTLP sender and replaces
-it with the JDK `HttpClient` sender:
-
-```scala
-"io.opentelemetry" % "opentelemetry-exporter-otlp" % otelVersion
-  exclude ("io.opentelemetry", "opentelemetry-exporter-sender-okhttp"),
-"io.opentelemetry" % "opentelemetry-exporter-sender-jdk" % otelVersion,
-```
-
-This avoids pulling in OkHttp as a dependency and instead uses the HTTP client
-built into JDK 11+. One fewer dependency, and consistent with the direct-style
-philosophy of using JDK facilities.
+This does three things: (1) creates a fully configured `OpenTelemetry` instance
+from `OTEL_*` environment variables (noop exporters when unset), (2) registers
+JVM runtime metric observers (CPU, memory, GC, threads, classes), and (3) hooks
+Logback into OpenTelemetry so log records are exported as log signals.
 
 ## Server-side tracing
 
@@ -113,10 +85,6 @@ The span is automatically populated with:
 - Response status code (`http.response.status_code`)
 - Request/response sizes
 
-If the incoming request carries a `traceparent` header (e.g., from another
-service), the span is created as a child of that trace, enabling distributed
-tracing across services.
-
 ### Interceptor ordering
 
 The final interceptor chain is assembled by `CustomiseInterceptors` in a fixed
@@ -143,13 +111,8 @@ positions are fixed by the framework.
 
 `OpenTelemetryMetrics.default` registers standard HTTP server metrics:
 - `http.server.request.duration` — histogram of request durations
-- `http.server.active_requests` — gauge of in-flight requests
-- `http.server.request.body.size` / `http.server.response.body.size` —
-  request/response sizes
-
-These are recorded using the OpenTelemetry Meter API and exported alongside the
-SDK's other metrics. The `[Identity]` type parameter indicates synchronous
-(direct-style) execution — no `IO` monad or `Future`.
+- `http.server.request.total` — counter of total requests
+- `http.server.active_requests` — up-down counter of in-flight requests
 
 ## Client-side instrumentation
 
@@ -169,19 +132,10 @@ val sttpBackend = Slf4jLoggingBackend(
 ```
 
 The backends compose as wrappers, innermost first:
-
-1. `HttpClientSyncBackend()` — the actual HTTP client (JDK `HttpClient`,
-   blocking/direct-style)
-2. `OpenTelemetryTracingBackend` — creates a child span for each outgoing
-   request and injects the `traceparent` header, enabling distributed tracing
-3. `OpenTelemetryMetricsBackend` — records client-side HTTP metrics (duration,
-   status codes)
-4. `Slf4jLoggingBackend` — logs requests/responses via SLF4J
-
-When a Tapir endpoint handler makes an outgoing HTTP call using this backend,
-the child span is automatically linked to the server span created by the tracing
-interceptor. This produces end-to-end traces showing: client → this service →
-downstream service.
+`OpenTelemetryTracingBackend` creates a child span for each outgoing request and
+injects the `traceparent` header, enabling distributed tracing.
+`OpenTelemetryMetricsBackend` records client-side HTTP metrics. Child spans are
+automatically linked to the server span, producing end-to-end traces.
 
 ## Custom business metrics
 
@@ -218,14 +172,7 @@ private val registerUserServerEndpoint = registerUserEndpoint.handle { data =>
 }
 ```
 
-The `Metrics` class takes the `OpenTelemetry` instance — the same one used for
-tracing and server metrics. In tests, `OpenTelemetry.noop()` is passed, so
-metric calls become no-ops.
-
-The `meterBuilder("bootzooka")` creates a named meter — this appears as the
-"instrumentation scope" in your observability backend, making it easy to
-distinguish your application's metrics from library metrics (like the HTTP
-server metrics or JVM metrics).
+In tests, `OpenTelemetry.noop()` is passed, so metric calls become no-ops.
 
 ## Trace context propagation with Ox
 
@@ -262,13 +209,6 @@ copy the OpenTelemetry context from the thread that created them. This means:
 
 Without this factory, forked threads would have an empty context, producing
 orphaned spans and logs without trace correlation.
-
-### How it works with `OxApp`
-
-`OxApp` is Ox's application entry point. It manages the top-level `supervised`
-scope and handles graceful shutdown. The `settings` override injects the
-propagating factory so that *all* virtual threads in the application — not just
-those created directly by the application — use context propagation.
 
 ## Log correlation via MDC
 
@@ -323,22 +263,3 @@ ID. In a Logback pattern like `%d [%X{traceId}] %msg%n`, you get:
 The same trace ID appears in the span sent to your tracing backend, enabling you
 to click a trace in Jaeger/Grafana and see the corresponding log lines.
 
-### The full observability stack
-
-Putting it all together, a single HTTP request produces:
-
-1. **A trace span** (via `OpenTelemetryTracing`) — with method, path, status
-   code, duration
-2. **HTTP server metrics** (via `OpenTelemetryMetrics`) — request count,
-   duration histogram
-3. **Application metrics** (via `Metrics`) — e.g., registered users counter
-4. **JVM metrics** (via runtime observers) — CPU, memory, GC, threads
-5. **Correlated logs** (via `SetTraceIdInMDCInterceptor` +
-   `OpenTelemetryAppender`) — with trace ID
-6. **Client spans** (via `OpenTelemetryTracingBackend`) — for any outgoing HTTP
-   calls
-
-All telemetry flows through the same `OpenTelemetry` instance, uses the same
-OTLP exporter, and shares the same trace context. The direct-style approach
-means none of this requires monadic effect types — it's all plain method calls
-on virtual threads, with context propagation handled by the thread factory.

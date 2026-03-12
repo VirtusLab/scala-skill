@@ -9,13 +9,11 @@
 
 ## Why compile-time DI
 
-Runtime DI frameworks (Spring, Guice) resolve dependencies at application
-startup using reflection. Errors — missing bindings, circular dependencies,
-wrong types — surface only when the application starts. Compile-time DI detects
-these at compilation, and adds no runtime overhead or classpath scanning.
-
-MacWire provides two macros: `autowire` constructs a dependency graph by
-matching types, and `wireList` collects all values of a given type into a list.
+MacWire resolves dependencies at compile time — missing bindings, circular
+dependencies, and type mismatches are compilation errors, with no runtime
+overhead. It provides three macros: `autowire` constructs a dependency graph by
+matching types, `wireList` collects all values of a given type into a list, and
+`autowireMembersOf` extracts fields from an object as individual dependencies.
 
 ## The dependency graph
 
@@ -52,8 +50,7 @@ Key patterns:
 
 - **`autowireMembersOf(config)`** — makes all fields of `Config` (which is a
   case class containing `DBConfig`, `HttpConfig`, `EmailConfig`, etc.) available
-  as individual dependencies. Instead of passing `config.db`, `config.api`, etc.
-  separately, the macro extracts them.
+  as individual dependencies.
 
 - **Factory functions** — when the default wiring isn't sufficient, you provide
   explicit constructors. The `HttpApi` lambda shows this: it takes specific
@@ -117,14 +114,3 @@ Dependencies.create(TestConfig, OpenTelemetry.noop(), HttpClientSyncBackend.stub
 The dependency graph is identical in production and tests. Only the leaf
 infrastructure (database, clock, HTTP backend, telemetry) differs.
 
-## No runtime dependency
-
-MacWire's `macros` artifact is declared as `Provided` — it's only needed at
-compile time:
-
-```scala
-"com.softwaremill.macwire" %% "macros" % Provided
-```
-
-The generated code is plain Scala constructor calls. There's no reflection, no
-classpath scanning, and no MacWire classes in the runtime classpath.

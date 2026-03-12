@@ -47,12 +47,10 @@ adapt them to your application's specific requirements.
   per-input routing control with `onDecodeFailureNextEndpoint`, custom failure
   messages, and hiding authenticated endpoints.
 
-- [Authentication](08-authentication.md) — Implementing bearer-token
-  authentication with Tapir's security model: defining secured endpoints,
-  writing a generic token-validation layer, and wiring it into the HTTP server.
-  Covers `secureEndpoint[T]`, the `AuthTokenOps[T]` trait, the `Auth[T]`
-  authenticator class, and `handleSecurity` for connecting auth to endpoint
-  logic.
+- [Authentication](08-authentication.md) — Bearer-token authentication using
+  Tapir's security model. Covers `secureEndpoint[T]`, the `AuthTokenOps[T]`
+  trait, the `Auth[T]` authenticator class, and `handleSecurity` for connecting
+  auth to endpoint logic.
 
 - [HTTP Server Configuration](09-http-server-configuration.md) — Configuring the
   HTTP server for production use. Covers security headers (clickjacking
@@ -75,11 +73,10 @@ adapt them to your application's specific requirements.
   templates, and the `fork`/`forever` pattern for periodic background tasks.
 
 - [Compile-Time OpenAPI Generation](13-compile-time-openapi-generation.md) —
-  Not the usual runtime Swagger UI approach — this chapter covers generating
-  OpenAPI YAML at build time from Tapir endpoint descriptions, for use as input
-  to frontend client code generation. Covers the `EndpointsForDocs` trait for
-  collecting endpoints, the `@main` generator method, and wiring it as an sbt
-  task.
+  Generating OpenAPI YAML at build time from Tapir endpoint descriptions, for
+  use as input to frontend client code generation — not the usual runtime
+  Swagger UI approach. Covers the `EndpointsForDocs` trait, the `@main`
+  generator function, and wiring it as an sbt task.
 
 - [Testing HTTP Endpoints](14-testing-http-endpoints.md) — Testing HTTP
   endpoints without starting a server using sttp's stub backend and Tapir's

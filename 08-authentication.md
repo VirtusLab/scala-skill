@@ -57,9 +57,6 @@ val getUserEndpoint = secureEndpoint[ApiKey].get
   .out(jsonBody[GetUser_OUT])
 ```
 
-The request/response body format (here JSON via `jsonBody`) is independent of
-the authentication mechanism.
-
 ## Token operations trait
 
 Authentication is generic over the token type via `AuthTokenOps[T]`:
@@ -115,23 +112,14 @@ class Auth[T](authTokenOps: AuthTokenOps[T], db: DB, clock: Clock):
   private def expired(token: T): Boolean = clock.now().isAfter(authTokenOps.validUntil(token))
 ```
 
-Three cases:
-1. **Token not found** — sleep a random 0–100ms before responding. This prevents
-   timing attacks where an attacker measures response times to distinguish
-   "token doesn't exist" from "token exists but is invalid." The `sleep` call is
-   from Ox and blocks the virtual thread without consuming an OS thread.
-2. **Token expired** — delete the stale token and return unauthorized.
-3. **Token valid** — if it's a one-time token (`deleteWhenValid`), consume it.
-   Return the user ID.
-
-The `apply` method makes `Auth[T]` callable as a function, which is how Tapir's
-security logic expects it.
+The random sleep in the not-found branch prevents timing attacks — an attacker
+can't distinguish "token missing" from "token exists but invalid" by measuring
+response times.
 
 ## Wiring auth into endpoints
 
-Tapir's security model has two phases: first validate the security input (the
-bearer token), then run the business logic with the authenticated identity. The
-`handleSecurity` method connects `Auth[ApiKey]` to the endpoint:
+`handleSecurity` connects `Auth[ApiKey]` to the endpoint — it validates the
+bearer token before the business logic runs:
 
 ```scala
 class UserApi(auth: Auth[ApiKey], userService: UserService, db: DB, metrics: Metrics)
@@ -142,11 +130,7 @@ class UserApi(auth: Auth[ApiKey], userService: UserService, db: DB, metrics: Met
 ```
 
 `handleSecurity` takes a function `Id[ApiKey] => Either[Fail, Id[User]]` — which
-is exactly what `auth.apply` provides. On success, the resulting `Id[User]` is
-passed to the business logic handler. On failure, the `Fail.Unauthorized` is
-mapped to a 401 response by the error output.
-
-This then lets you write secured endpoints cleanly:
+is what `auth.apply` provides. Secured endpoints then look like:
 
 ```scala
 private val getUserServerEndpoint = authedEndpoint(getUserEndpoint).handle { id => (_: Unit) =>
@@ -155,11 +139,7 @@ private val getUserServerEndpoint = authedEndpoint(getUserEndpoint).handle { id 
 }
 ```
 
-The `id` parameter is the authenticated `Id[User]` — already validated. The
-business logic just uses it.
-
-For secured endpoints with a request body, the handler is curried — `id` is the
-authenticated user, `data` is the request body:
+With a request body, the handler is curried — `id` then `data`:
 
 ```scala
 private val changePasswordServerEndpoint =

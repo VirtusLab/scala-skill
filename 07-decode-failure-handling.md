@@ -14,11 +14,6 @@ Inputs are decoded in order: method, path, query, headers, body. When any input
 fails to decode, the `DecodeFailureHandler` decides what to do: respond with an
 error, or skip this endpoint and try the next one.
 
-This decision is critical for routing. If two endpoints share a path prefix but
-differ in a path parameter type, the handler must distinguish "this endpoint
-doesn't match, try the next" from "this endpoint matches but the input is
-invalid."
-
 ## Default behavior
 
 The `DefaultDecodeFailureHandler` applies these rules:
@@ -29,14 +24,9 @@ The `DefaultDecodeFailureHandler` applies these rules:
 | Content-Type mismatch | 415 Unsupported Media Type |
 | Body exceeds size limit | 413 Payload Too Large |
 | Auth input (created via `auth.bearer`, etc.) | 401 Unauthorized + `WWW-Authenticate` header |
-| Path capture — validation error | 400 Bad Request |
-| Path capture — other decode error | Try next endpoint |
+| Path capture — parse error or validation error | 400 Bad Request |
+| Path capture — missing/mismatch | Try next endpoint |
 | Path segment mismatch | Try next endpoint |
-
-The key distinction: a path capture that fails validation (e.g., an enum value
-outside the allowed set) returns 400, while a path capture that simply can't be
-parsed (e.g., `"abc"` for an `Int`) silently passes to the next endpoint. This
-makes path-based routing work correctly when multiple endpoints share a prefix.
 
 ## The handler structure
 
@@ -73,9 +63,6 @@ val serverOptions = NettySyncServerOptions.customiseInterceptors
   .decodeFailureHandler(customHandler)
   .options
 ```
-
-With `Identity` as the effect type (direct-style), the handler is a plain
-function — no monadic wrapping needed.
 
 ### Custom respond logic
 
@@ -129,9 +116,6 @@ Without `onDecodeFailureNextEndpoint`, a request to `/customer/some_special_case
 would fail to decode `"some_special_case"` as a `UserId` and return 400. With
 the attribute, the first endpoint is skipped and the second one matches.
 
-This is useful when endpoints have overlapping path patterns and the path
-parameter type determines which endpoint should handle the request.
-
 ## Hiding authenticated endpoints
 
 `DefaultDecodeFailureHandler.hideEndpointsWithAuth` converts all error responses
@@ -147,37 +131,3 @@ This prevents an attacker from discovering authenticated endpoints by probing
 paths — they get the same 404 response whether the endpoint exists or not. Note
 that timing attacks may still reveal endpoint existence.
 
-## Combining custom rules with defaults
-
-To add a custom rule while preserving default behavior, match your case first
-and delegate to `DefaultDecodeFailureHandler.respond` as the fallback:
-
-```scala
-val handler = DefaultDecodeFailureHandler[Identity].copy(
-  respond = ctx =>
-    ctx.failingInput match
-      case _: EndpointInput.PathCapture[?] => None
-      case _ => DefaultDecodeFailureHandler.respond(ctx)
-)
-```
-
-The custom case is checked first. Everything else falls through to the default
-logic (400 for query/header/body, 401 for auth, etc.). This works because
-`DefaultDecodeFailureHandler.respond` is a standalone function — it doesn't
-depend on internal state.
-
-For full control over the response (bypassing the respond → message → response
-pipeline entirely), use `DecodeFailureHandler.pure`:
-
-```scala
-val defaultHandler = DefaultDecodeFailureHandler[Identity]
-
-val handler = DecodeFailureHandler.pure[Identity] { ctx =>
-  ctx.failingInput match
-    case _: EndpointInput.PathCapture[?] => None
-    case _ => defaultHandler(ctx)  // delegate to the default respond/message/response pipeline
-}
-```
-
-This gives you a single function that returns the complete output directly,
-rather than composing it from separate respond/message/response steps.

@@ -23,10 +23,8 @@ case class UserConfig(defaultApiKeyValid: Duration) derives ConfigReader
 case class PasswordResetConfig(resetLinkPattern: String, codeValid: Duration) derives ConfigReader
 ```
 
-`derives ConfigReader` uses Scala 3's type class derivation to automatically
-generate a reader that maps HOCON keys to case class fields. PureConfig handles
-the `camelCase` → `kebab-case` conversion (e.g., `migrateOnStart` reads from
-`migrate-on-start`).
+`derives ConfigReader` auto-generates a reader with `camelCase` → `kebab-case`
+key mapping (e.g., `migrateOnStart` reads from `migrate-on-start`).
 
 Standard types (`String`, `Int`, `Boolean`, `Duration`, `FiniteDuration`) are
 supported out of the box. Custom types need a `given ConfigReader` instance.
@@ -78,7 +76,6 @@ api {
 
 The `${?VAR}` syntax means: if the environment variable is set, use its value;
 otherwise, keep the default. This is a HOCON feature, not PureConfig-specific.
-It provides 12-factor app configuration without additional code.
 
 ## Sensitive values
 
@@ -94,16 +91,7 @@ object Sensitive:
 ```
 
 The `given ConfigReader[Sensitive]` instance lets PureConfig read `Sensitive`
-fields from plain strings in the config file. The `.value` accessor is used when
-the actual string is needed (e.g., when connecting to the database).
-
-Usage in a config class:
-
-```scala
-case class DBConfig(username: String, password: Sensitive, ...) derives ConfigReader
-```
-
-Logging the config shows `password: ***` instead of the actual value.
+fields from plain strings in the config file.
 
 ## Loading and logging
 
@@ -116,24 +104,22 @@ object Config:
 
 `loadOrThrow` reads from the default source (`application.conf` on the
 classpath, with system property and environment variable overrides) and throws
-an exception with a detailed error message if any required field is missing or
-has the wrong type. This fails fast at startup rather than at first use.
+an exception if any required field is missing or has the wrong type.
 
 The config is logged at startup for debugging, with `Sensitive` values masked:
 
 ```scala
 def log(config: Config): Unit =
   logger.info(s"""
-    |Bootzooka configuration:
+    |Application configuration:
     |DB:    ${config.db}
     |API:   ${config.api}
     |Email: ${config.email}
     |""".stripMargin)
 ```
 
-Because `Sensitive.toString` returns `***`, passwords and API keys are masked in
-the log output. The production code also logs build metadata here — see [Version
-API](11-version-api.md).
+`Sensitive` values are automatically masked. The production code also logs build
+metadata here — see [Version API](11-version-api.md).
 
 ## Validation at load time
 

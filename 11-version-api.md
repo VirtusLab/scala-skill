@@ -31,12 +31,8 @@ buildInfoObject := "BuildInfo"
 ```
 
 This generates `com.softwaremill.bootzooka.version.BuildInfo` with fields like
-`name`, `version`, `scalaVersion`, `sbtVersion`, and `lastCommitHash`. The
-`ToMap` option adds a `toMap` method (used for logging at startup), and `ToJson`
-adds a `toJson` method.
-
-The `lastCommitHash` is a custom key that runs `git rev-parse HEAD` at compile
-time to capture the current commit SHA.
+`name`, `version`, `scalaVersion`, `sbtVersion`, and `lastCommitHash`. `ToMap`
+and `ToJson` add `toMap` and `toJson` methods to the generated object.
 
 ## The version endpoint
 
@@ -64,6 +60,6 @@ object VersionApi extends EndpointsForDocs:
 ```
 
 `handleSuccess` is used instead of `handle` because this endpoint cannot fail —
-it always returns the build hash. There's no `Either` in the return type.
+it always returns the build hash.
 
 The endpoint is tagged as `"admin"` for grouping in the generated API docs.

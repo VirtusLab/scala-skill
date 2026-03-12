@@ -13,10 +13,6 @@ In direct-style Scala 3, application errors are represented as `Either` values
 rather than exceptions. Exceptions are reserved for bugs and unexpected failures
 — things that should crash the scope or propagate to a supervisor.
 
-This separation is important: exceptions are automatically managed by Ox's
-structured concurrency (a failing fork terminates the scope), while application
-errors are explicit in return types and must be handled by the caller.
-
 The application defines a `Fail` ADT as the application-wide error type:
 
 ```scala
@@ -33,8 +29,8 @@ object Fail:
 This is not a sealed hierarchy — modules can extend it with domain-specific
 failures. The `Fail` type flows through the entire application: service methods
 return `Either[Fail, T]`, endpoint handlers propagate it, and Tapir's error
-output maps it to HTTP status codes (see the
-[Authentication](08-authentication.md) chapter).
+output maps it to HTTP status codes (see [Error Output
+Customisation](06-error-output-customisation.md)).
 
 ## The `either` block
 
@@ -60,21 +56,8 @@ entire `either` block. The last expression in the block (here,
 `apiKeyService.create(...)`) is the success value, automatically wrapped in
 `Right`.
 
-Without `either`, the same logic would require nested `flatMap` or
-`for`/`yield`:
-
-```scala
-def login(...)(using DbTx): Either[Fail, ApiKey] =
-  for
-    user <- userOrNotFound(userModel.findByLoginOrEmail(loginOrEmailClean.toLowerCased))
-    _ <- verifyPassword(user, password, validationErrorMsg = IncorrectLoginOrPassword)
-  yield apiKeyService.create(user.id, apiKeyValid.getOrElse(config.defaultApiKeyValid))
-```
-
-The `either` version reads top-to-bottom like imperative code. This is
-especially valuable when there are many steps, or when intermediate results are
-used across multiple subsequent operations (which would require nested `flatMap`
-rather than simple `for`/`yield`).
+Unlike `for`/`yield`, the `either` block allows intermediate results to be used
+across multiple subsequent operations without nesting.
 
 ## Composing validations
 
@@ -98,14 +81,6 @@ def registerNewUser(login: String, email: String, password: String)
     doRegister()
 ```
 
-Each `.ok()` is a potential exit point. If `validateUserData` returns
-`Left(Fail.IncorrectInput("Login is too short!"))`, neither
-`checkUserDoesNotExist` nor `doRegister` runs. The error propagates directly to
-the caller.
-
-Note the mix of styles: `checkUserDoesNotExist` uses `for`/`yield` internally
-(it's simple enough), while the outer method uses `either` to compose the steps.
-Use whichever reads better for the given complexity.
 
 ## Transactions and `Either`
 
@@ -124,10 +99,7 @@ class DB(dataSource: DataSource & Closeable):
     transact(transactor)(f)
 ```
 
-`transactEither` ensures that a `Left` result triggers a rollback. It does this
-by converting the `Left` to an exception internally (to integrate with the JDBC
-transaction mechanism), then converting it back. This is transparent to the
-caller.
+`transactEither` ensures that a `Left` result triggers a rollback.
 
 The `NotGiven[T <:< Either[?, ?]]` constraint on `transact` is a compile-time
 guard: it prevents accidentally using `transact` when the body returns an
@@ -146,17 +118,13 @@ private val registerUserServerEndpoint = registerUserEndpoint.handle { data =>
 }
 ```
 
-The transaction boundary is at the endpoint handler level. The service method
-runs entirely within the transaction, including all validation and database
-operations. If any step returns a `Left`, the entire transaction rolls back.
-
 ## Converting exceptions to `Either`
 
 When integrating with Java libraries that throw exceptions for expected
 failures, use `.catching` to convert them to `Either`:
 
 ```scala
-import ox.catching
+import ox.either.catching
 
 val result: Either[IllegalArgumentException, Int] =
   (if userInput then 10 else throw new IllegalArgumentException("boom"))
@@ -194,5 +162,3 @@ either:
   inner().ok()
 ```
 
-This maintains clarity about control flow — each `.ok()` exits exactly the
-`either` block it's lexically inside.

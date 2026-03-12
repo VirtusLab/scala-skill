@@ -25,10 +25,6 @@ All errors are returned as a JSON body with a single `error` field:
 case class Error_OUT(error: String) derives ConfiguredJsonValueCodec, Schema
 ```
 
-The `derives` clause uses Scala 3's type class derivation to automatically
-generate the JSON codec (via jsoniter-scala) and the Tapir schema (for OpenAPI
-documentation).
-
 ## Mapping Fail to HTTP responses
 
 The `Fail` ADT (see [Error Handling](05-error-handling.md)) needs a
@@ -47,8 +43,6 @@ private val failOutput: EndpointOutput[Fail] =
 
 `.map` on a Tapir output creates a bidirectional transformation. The first
 function decodes (response → domain), the second encodes (domain → response).
-The decode direction is used by the client interpreter (in tests), and the
-encode direction by the server.
 
 The `failToResponseData` function maps each `Fail` variant to a status code and
 message:
@@ -74,10 +68,8 @@ val baseEndpoint: PublicEndpoint[Unit, Fail, Unit, Any] =
   endpoint.errorOut(failOutput)
 ```
 
-This means every endpoint automatically returns errors as JSON with the
-appropriate status code. Endpoint implementations just return
-`Left(Fail.IncorrectInput("..."))` — the mapping to HTTP is handled once,
-centrally.
+Endpoint implementations just return `Left(Fail.IncorrectInput("..."))` — the
+mapping to HTTP is handled once, centrally.
 
 ## Customising default error handlers
 
@@ -96,8 +88,5 @@ val serverOptions: NettySyncServerOptions = NettySyncServerOptions.customiseInte
 
 `defaultHandlers` takes a function that wraps any error message string in the
 same `Error_OUT` JSON format used by endpoint error outputs.
-`notFoundWhenRejected = true` returns a 404 (as JSON) instead of a 405 when no
-endpoint matches the request path.
-
-This ensures that *all* error responses from the server — whether from endpoint
-logic, input decoding, or routing — are consistently formatted as JSON.
+`notFoundWhenRejected = true` returns a 404 (as JSON) when the path matches an
+endpoint but the HTTP method doesn't, instead of a 405.

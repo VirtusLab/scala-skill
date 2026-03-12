@@ -12,11 +12,9 @@
 
 ## Architecture
 
-Emails are not sent synchronously during request handling. Instead, they are
-scheduled — stored in a database table — and sent asynchronously by a background
-process. This decouples the HTTP response time from email delivery latency and
-provides resilience: if email delivery fails, the emails remain in the queue and
-are retried on the next batch.
+Emails are scheduled — stored in a database table — and sent asynchronously by a
+background process. If delivery fails, emails remain in the queue and are
+retried on the next batch.
 
 ## Scheduling emails
 
@@ -34,9 +32,8 @@ trait EmailScheduler:
 case class EmailData(recipient: String, subject: String, content: String)
 ```
 
-Because `schedule` takes `(using DbTx)`, it participates in the same transaction
-as the business logic that triggers it. If user registration fails and the
-transaction rolls back, the welcome email is never scheduled.
+`(using DbTx)` ensures the email is scheduled within the same transaction as the
+business logic — if the transaction rolls back, the email is never scheduled.
 
 ## Email templates
 
@@ -77,16 +74,12 @@ Three implementations:
 - **`SmtpEmailSender`** — sends via SMTP using JavaMail
 - **`DummyEmailSender`** — logs the email and stores it in memory (for tests)
 
-The factory method selects the implementation based on configuration. In tests,
-neither Mailgun nor SMTP is enabled, so `DummyEmailSender` is used
+In tests, neither Mailgun nor SMTP is enabled, so `DummyEmailSender` is used
 automatically.
 
 ## The Mailgun sender
 
-`MailgunEmailSender` uses sttp's `SyncBackend` to call the Mailgun API. Because
-the same backend is used for all outgoing HTTP calls, it benefits from the
-observability instrumentation (tracing, metrics) configured at the application
-level (see [OpenTelemetry Observability](15-opentelemetry-observability.md)):
+`MailgunEmailSender` uses sttp's `SyncBackend` to call the Mailgun API:
 
 ```scala
 class MailgunEmailSender(config: MailgunConfig, sttpBackend: SyncBackend)
@@ -146,13 +139,6 @@ The find-send-delete pattern is simple but effective: if sending fails partway
 through, unsent emails remain in the database and are picked up by the next
 batch. The batch size and interval are configurable via `EmailConfig`.
 
-## The email database model
-
-Emails are stored in a `scheduled_emails` table. The model provides `insert`,
-`find`, `count`, and `delete` operations using the database patterns from [SQL
-Persistence](10-sql-persistence.md). All methods take `(using DbTx)` to
-participate in transactions.
-
 ## Testing emails
 
 In tests, `DummyEmailSender` captures sent emails in a thread-safe queue. Tests
@@ -164,5 +150,4 @@ DummyEmailSender.findSentEmail(email, s"registration confirmation for user $logi
   .isDefined shouldBe true
 ```
 
-This avoids any asynchronous waiting — the test controls exactly when emails are
-sent.
+The test controls exactly when emails are sent — no asynchronous waiting.

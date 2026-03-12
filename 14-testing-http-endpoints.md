@@ -11,31 +11,12 @@
 
 ## The testing approach
 
-The goal is to test the full endpoint stack — input decoding, error mapping,
-and business logic — without starting an HTTP server or making network calls.
-
-This works because Tapir separates endpoint *descriptions* from endpoint
-*implementations*:
-
-- **Endpoint descriptions** are data structures that define the shape of an HTTP
-  endpoint (method, path, inputs, outputs, errors). They are server-agnostic.
-- **Server endpoints** bind descriptions to implementation logic, producing
-  values that can be interpreted by a server — or by a stub.
-
-The testing approach uses two interpreters:
-
-1. **`TapirSyncStubInterpreter`** — takes a list of server endpoints and creates
-   an sttp `SyncBackend` that routes requests to matching endpoint logic. No
-   TCP, no HTTP server, but the full Tapir pipeline runs (input decoding,
-   security, error mapping, output encoding).
-
-2. **`SttpClientInterpreter`** — takes an endpoint *description* and produces a
-   function that builds an sttp `Request` from typed inputs. The request is
-   fully formed (correct path, headers, JSON body) and can be sent through the
-   stub backend.
-
-Together, you write tests that look like real HTTP calls — with the same types
-and the same error handling — but execute in-process.
+The goal is to test the full endpoint stack — input decoding, security, error
+mapping, and business logic — without starting an HTTP server.
+`TapirSyncStubInterpreter` creates a stub `SyncBackend` that routes requests to
+matching endpoint logic. `SttpClientInterpreter` converts endpoint descriptions
+into type-safe sttp requests. Together they let you test in-process with the
+same types and error handling as real HTTP calls.
 
 ## Setting up the stub backend
 
@@ -128,9 +109,6 @@ class UserApiTest extends BaseTest with TestDependencies with EitherValues:
   }
 ```
 
-`body.value` (from ScalaTest's `EitherValues`) unwraps the `Right` or fails the
-test with a clear message.
-
 Error responses are tested the same way — the client interpreter decodes errors
 back into the application's error type:
 
@@ -145,6 +123,5 @@ back into the application's error type:
   }
 ```
 
-The full error pipeline is exercised: `Fail.IncorrectInput` returned by the
-service → mapped to `StatusCode.BadRequest` → serialized as JSON → decoded back
-to `Fail` by the client interpreter.
+The full error pipeline runs: service error → HTTP status + JSON → decoded back
+to `Fail`.
