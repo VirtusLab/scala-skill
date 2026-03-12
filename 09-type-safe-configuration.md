@@ -2,13 +2,15 @@
 
 ## Dependencies
 
-- `"com.github.pureconfig" %% "pureconfig-core"` — reads HOCON/properties files into Scala case classes
+- `"com.github.pureconfig" %% "pureconfig-core"` — reads HOCON/properties files
+  into Scala case classes
 
 ---
 
 ## Configuration as case classes
 
-Each module defines its own configuration as a case class with `derives ConfigReader`:
+Each module defines its own configuration as a case class with `derives
+ConfigReader`:
 
 ```scala
 case class HttpConfig(host: String, port: Int) derives ConfigReader
@@ -21,9 +23,13 @@ case class UserConfig(defaultApiKeyValid: Duration) derives ConfigReader
 case class PasswordResetConfig(resetLinkPattern: String, codeValid: Duration) derives ConfigReader
 ```
 
-`derives ConfigReader` uses Scala 3's type class derivation to automatically generate a reader that maps HOCON keys to case class fields. PureConfig handles the `camelCase` → `kebab-case` conversion (e.g., `migrateOnStart` reads from `migrate-on-start`).
+`derives ConfigReader` uses Scala 3's type class derivation to automatically
+generate a reader that maps HOCON keys to case class fields. PureConfig handles
+the `camelCase` → `kebab-case` conversion (e.g., `migrateOnStart` reads from
+`migrate-on-start`).
 
-Standard types (`String`, `Int`, `Boolean`, `Duration`, `FiniteDuration`) are supported out of the box. Custom types need a `given ConfigReader` instance.
+Standard types (`String`, `Int`, `Boolean`, `Duration`, `FiniteDuration`) are
+supported out of the box. Custom types need a `given ConfigReader` instance.
 
 ## Nested configuration
 
@@ -57,7 +63,8 @@ user {
 
 ## Environment variable overrides
 
-Each setting can be overridden via an environment variable using HOCON's substitution syntax:
+Each setting can be overridden via an environment variable using HOCON's
+substitution syntax:
 
 ```hocon
 api {
@@ -69,11 +76,14 @@ api {
 }
 ```
 
-The `${?VAR}` syntax means: if the environment variable is set, use its value; otherwise, keep the default. This is a HOCON feature, not PureConfig-specific. It provides 12-factor app configuration without additional code.
+The `${?VAR}` syntax means: if the environment variable is set, use its value;
+otherwise, keep the default. This is a HOCON feature, not PureConfig-specific.
+It provides 12-factor app configuration without additional code.
 
 ## Sensitive values
 
-Passwords and API keys use a `Sensitive` wrapper that overrides `toString` to prevent accidental logging:
+Passwords and API keys use a `Sensitive` wrapper that overrides `toString` to
+prevent accidental logging:
 
 ```scala
 case class Sensitive(value: String):
@@ -83,7 +93,9 @@ object Sensitive:
   given ConfigReader[Sensitive] = pureconfig.ConfigReader[String].map(Sensitive(_))
 ```
 
-The `given ConfigReader[Sensitive]` instance lets PureConfig read `Sensitive` fields from plain strings in the config file. The `.value` accessor is used when the actual string is needed (e.g., when connecting to the database).
+The `given ConfigReader[Sensitive]` instance lets PureConfig read `Sensitive`
+fields from plain strings in the config file. The `.value` accessor is used when
+the actual string is needed (e.g., when connecting to the database).
 
 Usage in a config class:
 
@@ -102,7 +114,10 @@ object Config:
   def read: Config = ConfigSource.default.loadOrThrow[Config]
 ```
 
-`loadOrThrow` reads from the default source (`application.conf` on the classpath, with system property and environment variable overrides) and throws an exception with a detailed error message if any required field is missing or has the wrong type. This fails fast at startup rather than at first use.
+`loadOrThrow` reads from the default source (`application.conf` on the
+classpath, with system property and environment variable overrides) and throws
+an exception with a detailed error message if any required field is missing or
+has the wrong type. This fails fast at startup rather than at first use.
 
 The config is logged at startup for debugging, with `Sensitive` values masked:
 
@@ -116,7 +131,9 @@ def log(config: Config): Unit =
     |""".stripMargin)
 ```
 
-Because `Sensitive.toString` returns `***`, passwords and API keys are masked in the log output. The production code also logs build metadata here — see [Version API](10-version-api.md).
+Because `Sensitive.toString` returns `***`, passwords and API keys are masked in
+the log output. The production code also logs build metadata here — see [Version
+API](10-version-api.md).
 
 ## Validation at load time
 
@@ -135,4 +152,6 @@ case class PasswordResetConfig(resetLinkPattern: String, codeValid: Duration)
     )
 ```
 
-This runs when `Config.read` constructs the nested `PasswordResetConfig`, so an invalid `resetLinkPattern` fails the application at startup, not when a user first requests a password reset.
+This runs when `Config.read` constructs the nested `PasswordResetConfig`, so an
+invalid `resetLinkPattern` fails the application at startup, not when a user
+first requests a password reset.

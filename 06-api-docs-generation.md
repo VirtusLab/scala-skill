@@ -2,14 +2,18 @@
 
 ## Dependencies
 
-- `"com.softwaremill.sttp.tapir" %% "tapir-swagger-ui-bundle"` — Swagger UI served as server endpoints
-- `"com.softwaremill.sttp.apispec" %% "openapi-circe-yaml"` — serialise OpenAPI model to YAML (for file generation)
+- `"com.softwaremill.sttp.tapir" %% "tapir-swagger-ui-bundle"` — Swagger UI
+  served as server endpoints
+- `"com.softwaremill.sttp.apispec" %% "openapi-circe-yaml"` — serialise OpenAPI
+  model to YAML (for file generation)
 
 ---
 
 ## Endpoints for documentation
 
-Tapir endpoint descriptions are data structures. The same description used to implement server logic can also generate OpenAPI documentation. Each API module exposes its endpoints for docs via the `EndpointsForDocs` trait:
+Tapir endpoint descriptions are data structures. The same description used to
+implement server logic can also generate OpenAPI documentation. Each API module
+exposes its endpoints for docs via the `EndpointsForDocs` trait:
 
 ```scala
 trait EndpointsForDocs:
@@ -26,7 +30,9 @@ object PasswordResetApi extends EndpointsForDocs:
   override val endpointsForDocs = wireList[AnyEndpoint].map(_.tag("password-reset"))
 ```
 
-`wireList` is a MacWire macro that collects all values matching the element type — see [Compile-Time Dependency Injection](07-compile-time-dependency-injection.md).
+`wireList` is a MacWire macro that collects all values matching the element type
+— see [Compile-Time Dependency
+Injection](07-compile-time-dependency-injection.md).
 
 All endpoint lists are merged in `Dependencies`:
 
@@ -38,7 +44,8 @@ object Dependencies:
 
 ## Serving Swagger UI at runtime
 
-`SwaggerInterpreter` generates server endpoints that serve the Swagger UI and the OpenAPI spec:
+`SwaggerInterpreter` generates server endpoints that serve the Swagger UI and
+the OpenAPI spec:
 
 ```scala
 val docsEndpoints = SwaggerInterpreter(
@@ -46,7 +53,10 @@ val docsEndpoints = SwaggerInterpreter(
 ).fromEndpoints[Identity](endpointsForDocs, "Bootzooka", "1.0")
 ```
 
-This produces server endpoints that serve the interactive Swagger UI at `/api/v1/docs`. The `contextPath` must match the path prefix where the API endpoints are mounted, so that the "Try it out" feature sends requests to the correct URLs.
+This produces server endpoints that serve the interactive Swagger UI at
+`/api/v1/docs`. The `contextPath` must match the path prefix where the API
+endpoints are mounted, so that the "Try it out" feature sends requests to the
+correct URLs.
 
 The docs endpoints are added alongside the API endpoints:
 
@@ -59,7 +69,8 @@ val apiEndpoints =
 
 ## Generating OpenAPI YAML at build time
 
-For frontends that need the API spec during their build (e.g., to generate typed HTTP clients), the spec can be written to a file:
+For frontends that need the API spec during their build (e.g., to generate typed
+HTTP clients), the spec can be written to a file:
 
 ```scala
 object OpenAPIDescription:
@@ -73,7 +84,9 @@ object OpenAPIDescription:
   Files.writeString(Paths.get(path), yaml)
 ```
 
-This is a standalone `@main` method — it runs without starting the HTTP server. The `endpointsForDocs` list is the same one used by the runtime Swagger UI, so the generated file is always consistent.
+This is a standalone `@main` method — it runs without starting the HTTP server.
+The `endpointsForDocs` list is the same one used by the runtime Swagger UI, so
+the generated file is always consistent.
 
 In `build.sbt`, this is wired as an sbt task:
 
@@ -88,4 +101,5 @@ generateOpenAPIDescription := Def.taskDyn {
 }.value
 ```
 
-The generated `openapi.yaml` is then consumed by the frontend build to generate typed API stubs.
+The generated `openapi.yaml` is then consumed by the frontend build to generate
+typed API stubs.

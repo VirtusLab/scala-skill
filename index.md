@@ -3,7 +3,8 @@
 A hands-on guide to writing applications using Scala 3, Java 25 virtual threads,
 and direct style. Each chapter is a self-contained use-case using
 [Tapir](https://tapir.softwaremill.com), [Ox](https://ox.softwaremill.com), and
-the direct-style ecosystem.
+the direct-style ecosystem. The patterns and code shown are starting points —
+adapt them to your application's specific requirements.
 
 ## Chapters
 

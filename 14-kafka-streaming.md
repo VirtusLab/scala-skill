@@ -8,7 +8,10 @@
 
 ## Ox Flows
 
-A `Flow[T]` is a lazy, asynchronous data pipeline. It describes transformations that only execute when a terminal operation (`runToList`, `runForeach`, `runDrain`) is called. Flows are built on top of Ox's channels and structured concurrency.
+A `Flow[T]` is a lazy, asynchronous data pipeline. It describes transformations
+that only execute when a terminal operation (`runToList`, `runForeach`,
+`runDrain`) is called. Flows are built on top of Ox's channels and structured
+concurrency.
 
 ```scala
 Flow.fromValues(1, 2, 3)
@@ -27,7 +30,8 @@ Flow.fromValues(1, 2, 3, 4, 5)
 
 ## Consuming from Kafka
 
-`KafkaFlow.subscribe` creates a `Flow[ReceivedMessage[K, V]]` from a Kafka topic:
+`KafkaFlow.subscribe` creates a `Flow[ReceivedMessage[K, V]]` from a Kafka
+topic:
 
 ```scala
 import ox.kafka.{ConsumerSettings, KafkaFlow, ReceivedMessage}
@@ -43,11 +47,13 @@ KafkaFlow
   .runDrain()
 ```
 
-`runDrain()` consumes the flow indefinitely, discarding results. This is the typical pattern for a consumer that processes messages for side effects.
+`runDrain()` consumes the flow indefinitely, discarding results. This is the
+typical pattern for a consumer that processes messages for side effects.
 
 ## Publishing to Kafka
 
-Messages can be published as a terminal operation (drain) or as an intermediate step that returns metadata:
+Messages can be published as a terminal operation (drain) or as an intermediate
+step that returns metadata:
 
 ```scala
 // As a drain — fire and forget
@@ -64,7 +70,8 @@ Flow.fromIterable(messages)
 
 ## Consuming, processing, and committing offsets
 
-A common pattern: consume messages, process them (possibly in parallel), and commit offsets:
+A common pattern: consume messages, process them (possibly in parallel), and
+commit offsets:
 
 ```scala
 KafkaFlow
@@ -76,7 +83,9 @@ KafkaFlow
   .pipe(KafkaDrain.runCommit(consumerSettings))
 ```
 
-`CommitPacket` wraps the received message so that the commit drain knows which offsets to commit. Offsets are committed in batches (by default, every second), computing the maximum offset per topic-partition.
+`CommitPacket` wraps the received message so that the commit drain knows which
+offsets to commit. Offsets are committed in batches (by default, every second),
+computing the maximum offset per topic-partition.
 
 ## Transactional produce-and-commit
 
@@ -92,11 +101,15 @@ KafkaFlow
   .pipe(KafkaDrain.runPublishAndCommit(producerSettings, consumerSettings))
 ```
 
-`SendPacket` combines records to publish with messages to commit. The drain uses Kafka transactions to atomically publish the output records and commit the input offsets.
+`SendPacket` combines records to publish with messages to commit. The drain uses
+Kafka transactions to atomically publish the output records and commit the input
+offsets.
 
 ## Integration with structured concurrency
 
-Kafka consumers run within Ox scopes. When the scope ends (e.g., application shutdown), the consumer is closed gracefully — pending offsets are committed and the consumer group rebalances.
+Kafka consumers run within Ox scopes. When the scope ends (e.g., application
+shutdown), the consumer is closed gracefully — pending offsets are committed and
+the consumer group rebalances.
 
 ```scala
 object Main extends OxApp.Simple:
@@ -107,4 +120,7 @@ object Main extends OxApp.Simple:
       .runDrain()
 ```
 
-Because `runDrain()` blocks indefinitely (the Kafka consumer keeps polling), there's no need for `never` — the flow itself keeps the scope alive. On SIGTERM, `OxApp` interrupts the scope, which interrupts the flow, which closes the Kafka consumer.
+Because `runDrain()` blocks indefinitely (the Kafka consumer keeps polling),
+there's no need for `never` — the flow itself keeps the scope alive. On SIGTERM,
+`OxApp` interrupts the scope, which interrupts the flow, which closes the Kafka
+consumer.
