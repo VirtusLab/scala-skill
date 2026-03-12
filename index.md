@@ -12,15 +12,14 @@ adapt them to your application's specific requirements.
   authentication with Tapir's security model: defining secured endpoints,
   writing a generic token-validation layer, and wiring it into the HTTP server.
   Covers `secureEndpoint[T]`, the `AuthTokenOps[T]` trait, the `Auth[T]`
-  authenticator class, API key model and lifecycle, and `handleSecurity` for
-  connecting auth to endpoint logic.
+  authenticator class, and `handleSecurity` for connecting auth to endpoint
+  logic.
 
 - [Testing HTTP Endpoints](02-testing-http-endpoints.md) — Testing HTTP
   endpoints without starting a server using sttp's stub backend and Tapir's
   `SttpClientInterpreter`. Covers setting up `TapirSyncStubInterpreter`,
-  converting endpoint descriptions into type-safe HTTP requests, testing both
-  public and secured endpoints, and structuring test dependencies with an
-  embedded database.
+  converting endpoint descriptions into type-safe HTTP requests, and testing
+  both public and secured endpoints.
 
 - [OpenTelemetry Observability](03-opentelemetry-observability.md) — Adding
   tracing, metrics, and log correlation to a direct-style application using
@@ -41,10 +40,10 @@ adapt them to your application's specific requirements.
   `failOutput` Tapir output, and customising `defaultHandlers` in server
   options.
 
-- [API Docs Generation](06-api-docs-generation.md) — Generating OpenAPI
-  documentation from Tapir endpoint descriptions. Covers the `EndpointsForDocs`
-  trait, serving Swagger UI at runtime with `SwaggerInterpreter`, and generating
-  OpenAPI YAML at build time for frontend code generation.
+- [Compile-Time OpenAPI Generation](06-api-docs-generation.md) — Generating
+  OpenAPI YAML at build time from Tapir endpoint descriptions. Covers the
+  `EndpointsForDocs` trait for collecting endpoints, the `@main` generator
+  method, and wiring it as an sbt task for frontend code generation.
 
 - [Compile-Time Dependency Injection](07-compile-time-dependency-injection.md) —
   Wiring the application's dependency graph at compile time using MacWire.
@@ -87,3 +86,14 @@ adapt them to your application's specific requirements.
   processing, publishing with `KafkaDrain`, offset commits, transactional
   produce-and-commit, and integration with structured concurrency for graceful
   shutdown.
+
+- [Decode Failure Handling](15-decode-failure-handling.md) — Customising how
+  Tapir handles requests that can't be decoded. Covers the
+  `DefaultDecodeFailureHandler` structure, the respond/message/response pipeline,
+  per-input routing control with `onDecodeFailureNextEndpoint`, custom failure
+  messages, and hiding authenticated endpoints.
+
+- [HTTP Server Configuration](16-http-server-configuration.md) — Configuring the
+  HTTP server for production use. Covers security headers (clickjacking
+  prevention), CORS setup, serving static files for single-page applications,
+  and request cancellation handling for database-backed services.

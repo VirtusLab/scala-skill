@@ -70,6 +70,9 @@ loops forever or is interrupted).
 Multiple processes are started by calling `fork` multiple times within the same
 scope:
 
+`foreverPeriodically` is the application-defined helper shown above — it combines
+Ox's `fork`, `forever`, and `sleep` with error handling:
+
 ```scala
 def startProcesses()(using Ox): Unit =
   foreverPeriodically("Exception when sending emails") {

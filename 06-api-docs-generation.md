@@ -1,15 +1,22 @@
-# API Docs Generation
+# Compile-Time OpenAPI Generation
 
 ## Dependencies
 
-- `"com.softwaremill.sttp.tapir" %% "tapir-swagger-ui-bundle"` — Swagger UI
-  served as server endpoints
+- `"com.softwaremill.sttp.tapir" %% "tapir-openapi-docs"` — OpenAPI model
+  generation from endpoint descriptions
 - `"com.softwaremill.sttp.apispec" %% "openapi-circe-yaml"` — serialise OpenAPI
-  model to YAML (for file generation)
+  model to YAML
 
 ---
 
-## Endpoints for documentation
+## Why generate at build time
+
+Tapir can generate OpenAPI documentation at runtime (via `SwaggerInterpreter`),
+but generating the spec at build time has a distinct advantage: the OpenAPI YAML
+file can be consumed by frontend builds to generate typed HTTP clients. This
+makes the API contract a build-time dependency rather than a runtime one.
+
+## Collecting endpoints for docs
 
 Tapir endpoint descriptions are data structures. The same description used to
 implement server logic can also generate OpenAPI documentation. Each API module
@@ -34,7 +41,7 @@ object PasswordResetApi extends EndpointsForDocs:
 — see [Compile-Time Dependency
 Injection](07-compile-time-dependency-injection.md).
 
-All endpoint lists are merged in `Dependencies`:
+All endpoint lists are merged in a single place:
 
 ```scala
 object Dependencies:
@@ -42,39 +49,14 @@ object Dependencies:
     List(UserApi, PasswordResetApi, VersionApi).flatMap(_.endpointsForDocs)
 ```
 
-## Serving Swagger UI at runtime
+## The generator
 
-`SwaggerInterpreter` generates server endpoints that serve the Swagger UI and
-the OpenAPI spec:
-
-```scala
-val docsEndpoints = SwaggerInterpreter(
-  swaggerUIOptions = SwaggerUIOptions.default.copy(contextPath = List("api", "v1"))
-).fromEndpoints[Identity](endpointsForDocs, "Bootzooka", "1.0")
-```
-
-This produces server endpoints that serve the interactive Swagger UI at
-`/api/v1/docs`. The `contextPath` must match the path prefix where the API
-endpoints are mounted, so that the "Try it out" feature sends requests to the
-correct URLs.
-
-The docs endpoints are added alongside the API endpoints:
-
-```scala
-val apiEndpoints =
-  (serverEndpoints ++ docsEndpoints).map(se =>
-    se.prependSecurityIn(apiContextPath.foldLeft(emptyInput: EndpointInput[Unit])(_ / _))
-  )
-```
-
-## Generating OpenAPI YAML at build time
-
-For frontends that need the API spec during their build (e.g., to generate typed
-HTTP clients), the spec can be written to a file:
+A standalone `@main` method converts the endpoint descriptions to YAML and
+writes the file:
 
 ```scala
 object OpenAPIDescription:
-  val Title = "Bootzooka"
+  val Title = "My API"
   val Version = "1.0"
 
 @main def writeOpenAPIDescription(path: String): Unit =
@@ -84,22 +66,30 @@ object OpenAPIDescription:
   Files.writeString(Paths.get(path), yaml)
 ```
 
-This is a standalone `@main` method — it runs without starting the HTTP server.
-The `endpointsForDocs` list is the same one used by the runtime Swagger UI, so
-the generated file is always consistent.
+This runs without starting the HTTP server. It only needs the endpoint
+descriptions and the OpenAPI interpreter — no server dependencies, no runtime
+configuration.
 
-In `build.sbt`, this is wired as an sbt task:
+## Wiring as an sbt task
+
+In `build.sbt`, the generator is exposed as a task that can be called from the
+build or CI:
 
 ```scala
 generateOpenAPIDescription := Def.taskDyn {
   val targetPath = ((Compile / target).value / "openapi.yaml").toString
   Def.task {
     (Compile / runMain).toTask(
-      s" com.softwaremill.bootzooka.writeOpenAPIDescription $targetPath"
+      s" com.softwaremill.myapp.writeOpenAPIDescription $targetPath"
     ).value
   }
 }.value
 ```
 
-The generated `openapi.yaml` is then consumed by the frontend build to generate
-typed API stubs.
+`Def.taskDyn` is needed because `runMain` returns a dynamic task. The generated
+`openapi.yaml` is written to the `target` directory, where the frontend build
+can pick it up to generate typed API stubs.
+
+Because the generator uses the same `endpointsForDocs` list as the runtime
+Swagger UI (if enabled), the generated spec is always consistent with the
+running server.

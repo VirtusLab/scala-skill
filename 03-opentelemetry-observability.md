@@ -90,6 +90,8 @@ tracing interceptor creates an OpenTelemetry span for each incoming HTTP
 request:
 
 ```scala
+import sttp.shared.Identity
+
 val serverOptions: NettySyncServerOptions = NettySyncServerOptions.customiseInterceptors
   .prependInterceptor(OpenTelemetryTracing(otel))
   .prependInterceptor(SetTraceIdInMDCInterceptor)
@@ -117,15 +119,21 @@ tracing across services.
 
 ### Interceptor ordering
 
-The order matters:
+The final interceptor chain is assembled by `CustomiseInterceptors` in a fixed
+order:
 
-1. `OpenTelemetryTracing` — creates the span, sets the trace context
-2. `SetTraceIdInMDCInterceptor` — reads the trace context and puts the trace ID
-   in the MDC (for logging)
-3. CORS — handles preflight requests
-4. `OpenTelemetryMetrics` — records request metrics
-5. Default handlers — error formatting, 404 handling
-6. Endpoint logic — the actual business logic
+1. **Prepended interceptors** — in the order `prependInterceptor` is called
+2. **Metrics** — `OpenTelemetryMetrics`
+3. **Exception/logging handlers** — (from `defaultHandlers`)
+4. **CORS** — handles preflight requests
+5. **Reject handler** — 404 for unmatched requests (from `defaultHandlers`)
+6. **Decode failure handler** — error formatting (from `defaultHandlers`)
+
+The `prependInterceptor` calls maintain their call order — `OpenTelemetryTracing`
+runs before `SetTraceIdInMDCInterceptor` because it's prepended first.
+`.defaultHandlers(...)` customises the behaviour of the exception, reject, and
+decode failure handlers, but doesn't change where they sit in the chain — their
+positions are fixed by the framework.
 
 ## Server-side metrics
 

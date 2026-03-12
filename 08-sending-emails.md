@@ -148,20 +148,10 @@ batch. The batch size and interval are configurable via `EmailConfig`.
 
 ## The email database model
 
-Emails are stored in a `scheduled_emails` table. The model wraps the flat table
-row into the domain `Email`/`EmailData` types:
-
-```scala
-class EmailModel:
-  private val emailRepo = Repo[ScheduledEmails, ScheduledEmails, Id[Email]]
-
-  def insert(email: Email)(using DbTx): Unit = emailRepo.insert(ScheduledEmails(email))
-  def find(limit: Int)(using DbTx): Vector[Email] =
-    emailRepo.findAll(Spec[ScheduledEmails].limit(limit)).map(_.toEmail)
-  def count()(using DbTx): Long = emailRepo.count
-  def delete(ids: Vector[Id[Email]])(using DbTx): Unit =
-    emailRepo.deleteAllById(ids).discard
-```
+Emails are stored in a `scheduled_emails` table. The model provides `insert`,
+`find`, `count`, and `delete` operations using the database patterns from [SQL
+Persistence](13-sql-persistence.md). All methods take `(using DbTx)` to
+participate in transactions.
 
 ## Testing emails
 

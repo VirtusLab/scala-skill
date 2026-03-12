@@ -5,18 +5,14 @@
 - `"com.softwaremill.sttp.tapir" %% "tapir-netty-server-sync"` — HTTP server
   with synchronous (direct-style) backend
 - `"com.softwaremill.ox" %% "core"` — `sleep` for timing-attack mitigation
-- `"com.augustnagro" %% "magnum"` — database access (storing and retrieving API
-  keys in PostgreSQL)
-- `"com.password4j" % "password4j"` — password hashing (Argon2)
 
 ---
 
-## Base endpoint definitions
+## Secured endpoints
 
 Two building blocks are defined for all endpoints in the application.
-`baseEndpoint` specifies the error output format (see [Error
-Handling](04-error-handling.md) for the `Fail` ADT and how it maps to HTTP
-status codes):
+`baseEndpoint` specifies the error output format (see [Error Output
+Customisation](05-error-output-customisation.md)):
 
 ```scala
 val baseEndpoint: PublicEndpoint[Unit, Fail, Unit, Any] =
@@ -27,9 +23,18 @@ def secureEndpoint[T]: Endpoint[Id[T], Unit, Fail, Unit, Any] =
   baseEndpoint.securityIn(auth.bearer[String]().map(_.asId[T])(_.toString))
 ```
 
+`Id[T]` is an opaque type over `String`, phantom-typed to prevent mixing up IDs
+of different entities at compile time:
+
+```scala
+opaque type Id[T] = String
+
+extension (s: String)
+  def asId[T]: Id[T] = s
+```
+
 `secureEndpoint[T]` reads a bearer token from the `Authorization` header and
-parses it as an `Id[T]` — a phantom-typed string wrapper that prevents mixing up
-API key IDs with user IDs at the type level.
+parses it as an `Id[T]`.
 
 The type parameter `T` is the token type. For API key–protected endpoints, you
 use `secureEndpoint[ApiKey]`, which produces `Endpoint[Id[ApiKey], Unit, Fail,
@@ -69,18 +74,11 @@ trait AuthTokenOps[T]:
   def deleteWhenValid: Boolean
 ```
 
-Two things to note about the Scala 3 syntax here:
+`deleteWhenValid` controls whether the token is single-use. API keys return
+`false` (the same key works for many requests). Password-reset codes return
+`true` (consumed on use).
 
-1. **Context function types** — `DbTx ?=> Id[T] => Option[T]` means "a function
-   from `Id[T]` to `Option[T]` that requires a `DbTx` in context." The `?=>`
-   makes the database transaction an implicit requirement, threaded through
-   automatically when calling within a `transact` block.
-
-2. **`deleteWhenValid`** — controls whether the token is single-use. API keys
-   return `false` (the same key works for many requests). Password-reset codes
-   return `true` (consumed on use).
-
-The `ApiKeyAuthToken` implementation connects the trait to the `ApiKeyModel`:
+A concrete implementation connects the trait to a data access layer:
 
 ```scala
 class ApiKeyAuthToken(apiKeyModel: ApiKeyModel) extends AuthTokenOps[ApiKey]:
@@ -128,57 +126,6 @@ Three cases:
 
 The `apply` method makes `Auth[T]` callable as a function, which is how Tapir's
 security logic expects it.
-
-## API key model and service
-
-The `ApiKey` case class maps directly to a PostgreSQL table via Magnum's
-`@Table` annotation:
-
-```scala
-@Table(PostgresDbType, SqlNameMapper.CamelToSnakeCase)
-@SqlName("api_keys")
-case class ApiKey(id: Id[ApiKey], userId: Id[User], createdOn: Instant, validUntil: Instant)
-```
-
-The model provides basic CRUD. Note the `(using DbTx)` context parameter — all
-database operations require an active transaction:
-
-```scala
-class ApiKeyModel:
-  private val apiKeyRepo = Repo[ApiKey, ApiKey, Id[ApiKey]]
-  private val a = TableInfo[ApiKey, ApiKey, Id[ApiKey]]
-
-  def insert(apiKey: ApiKey)(using DbTx): Unit = apiKeyRepo.insert(apiKey)
-  def findById(id: Id[ApiKey])(using DbTx): Option[ApiKey] = apiKeyRepo.findById(id)
-  def delete(id: Id[ApiKey])(using DbTx): Unit = apiKeyRepo.deleteById(id)
-  def deleteAllForUser(id: Id[User])(using DbTx): Unit =
-    sql"""DELETE FROM $a WHERE ${a.userId} = $id""".update.run().discard
-```
-
-`Repo` provides standard CRUD operations. `TableInfo` gives access to table and
-column metadata for use in custom SQL queries — here `$a` interpolates the table
-name, and `${a.userId}` the column name.
-
-The service handles key creation with configurable validity:
-
-```scala
-class ApiKeyService(apiKeyModel: ApiKeyModel, idGenerator: IdGenerator, clock: Clock):
-  def create(userId: Id[User], valid: Duration)(using DbTx): ApiKey =
-    val id = idGenerator.nextId[ApiKey]()
-    val now = clock.now()
-    val validUntil = now.plus(valid.toMillis, ChronoUnit.MILLIS)
-    val apiKey = ApiKey(id, userId, now, validUntil)
-    apiKeyModel.insert(apiKey)
-    apiKey
-
-  def invalidate(id: Id[ApiKey])(using DbTx): Unit = apiKeyModel.delete(id)
-
-  def invalidateAllForUser(userId: Id[User])(using DbTx): Unit =
-    apiKeyModel.deleteAllForUser(userId)
-```
-
-All methods take `(using DbTx)` — they're always called from within a
-transaction managed by the `DB` class.
 
 ## Wiring auth into endpoints
 
