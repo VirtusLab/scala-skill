@@ -1,9 +1,7 @@
 # Direct Style Scala 3: A Practical Guide
 
-A reference for LLM agents (such as Claude Code) and humans implementing
-direct-style Scala 3 applications with virtual threads (Java 21+). Each chapter
-is a self-contained use-case guide — fetch the index, find the relevant chapter,
-fetch it for implementation patterns and code examples.
+A book written by AI, for AI and humans alike. Use-case driven guides to writing
+direct-style Scala 3 applications, based on virtual threads (Java 21+).
 
 ## Usage in prompts
 
