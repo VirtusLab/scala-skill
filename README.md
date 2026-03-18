@@ -9,14 +9,15 @@ Copy the following snippet into your AI agent's prompt or `CLAUDE.md` to give it
 access to the guide:
 
 ```
-When implementing Scala 3 direct-style applications using Tapir, Ox, or sttp,
-consult the guide at:
+BEFORE writing any code that uses Tapir, Ox, sttp, or Kafka, you MUST fetch the
+guide index and the relevant chapter(s), then follow the patterns shown there:
 https://raw.githubusercontent.com/VirtusLab/direct-style-guide/refs/heads/master/index.md
 
 The index lists self-contained chapters by use-case (error handling,
 authentication, testing, observability, persistence, configuration, etc.). Fetch
 the chapter relevant to your current task for implementation patterns and code
-examples.
+examples. This is not optional — code that ignores guide patterns will be
+rejected in review.
 
 Base URL for chapters:
 https://raw.githubusercontent.com/VirtusLab/direct-style-guide/refs/heads/master/
