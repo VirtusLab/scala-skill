@@ -67,3 +67,7 @@ the direct-style ecosystem.
 - [Kafka Streaming](16-kafka-streaming.md) — `KafkaFlow.subscribe`, `mapPar`,
   `KafkaDrain` publishing, offset commits, transactional produce-and-commit,
   graceful shutdown.
+
+- [SOAP with scalaxb](17-soap-with-scalaxb.md) — XSD-to-Scala code generation,
+  SOAP envelope wrapping/unwrapping, Tapir XML codecs for scalaxb types,
+  `SOAPAction`-based endpoint routing, SOAP fault error handlers.
