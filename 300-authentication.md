@@ -12,7 +12,7 @@
 
 Two building blocks are defined for all endpoints in the application.
 `baseEndpoint` specifies the error output format (see [Error Output
-Customisation](06-error-output-customisation.md)):
+Customisation](210-error-output-customisation.md)):
 
 ```scala
 val baseEndpoint: PublicEndpoint[Unit, Fail, Unit, Any] =
@@ -24,7 +24,7 @@ def secureEndpoint[T]: Endpoint[Id[T], Unit, Fail, Unit, Any] =
 ```
 
 `Id[T]` is an opaque type over `String` (see [SQL
-Persistence](10-sql-persistence.md)). Secured endpoints use
+Persistence](400-sql-persistence.md)). Secured endpoints use
 `secureEndpoint[ApiKey]`:
 
 ```scala

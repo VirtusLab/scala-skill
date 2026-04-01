@@ -93,7 +93,7 @@ class MailgunEmailSender(config: MailgunConfig, sttpBackend: SyncBackend)
 ## Background processing
 
 `EmailService.startProcesses` launches two background forks within the Ox scope
-(see [Background Processes](02-background-processes.md)):
+(see [Background Processes](110-background-processes.md)):
 
 ```scala
 class EmailService(...) extends EmailScheduler:
@@ -109,7 +109,7 @@ class EmailService(...) extends EmailScheduler:
 ```
 
 `foreverPeriodically` uses the pattern described in [Background
-Processes](02-background-processes.md).
+Processes](110-background-processes.md).
 
 ## Batch sending
 

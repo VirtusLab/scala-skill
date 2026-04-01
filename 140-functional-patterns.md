@@ -81,7 +81,7 @@ def init(): ProcessingState =
 
 When a state transition can fail, return `Either` and use `either` blocks to
 compose multiple transitions with short-circuiting (see [Error
-Handling](05-error-handling.md)):
+Handling](200-error-handling.md)):
 
 ```scala
 import ox.either

@@ -27,8 +27,9 @@ https://raw.githubusercontent.com/VirtusLab/direct-style-guide/refs/heads/master
 
 - `index.md` — lists all chapters with a short description of each. This is the
   entry point.
-- One markdown file per chapter (`01-*.md`, `02-*.md`, etc.), numbered for
-  ordering.
+- One markdown file per chapter, numbered by group (`100-*.md`, `110-*.md`,
+  `200-*.md`, etc.). Groups start at 100, 200, 300, etc.; chapters within a
+  group increment by 10.
 
 Each chapter covers a single use-case and follows this format:
 
@@ -58,8 +59,9 @@ Additional documentation sources:
    "authentication", "testing HTTP endpoints", "observability"). Don't combine
    multiple unrelated concerns.
 
-3. **Create the chapter file** as `NN-slug.md` where `NN` is the next number and
-   `slug` is a short kebab-case name.
+3. **Create the chapter file** as `NNN-slug.md` where `NNN` is the next number
+   in the appropriate group (see Structure above) and `slug` is a short
+   kebab-case name.
 
 4. **Write the chapter** following the format:
    - Start with a `#` title and a description paragraph.

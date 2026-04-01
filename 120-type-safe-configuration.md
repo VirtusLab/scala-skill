@@ -107,7 +107,7 @@ def log(config: Config): Unit =
 ```
 
 The production code also logs build metadata here — see [Version
-API](11-version-api.md).
+API](320-version-api.md).
 
 ## Validation at load time
 

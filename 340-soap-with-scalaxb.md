@@ -278,7 +278,7 @@ val options = NettySyncServerOptions.customiseInterceptors
 ## Testing SOAP endpoints
 
 Use `TapirSyncStubInterpreter` to test SOAP endpoints in-process without
-starting a server (see [Testing HTTP Endpoints](14-testing-http-endpoints.md)):
+starting a server (see [Testing HTTP Endpoints](500-testing-http-endpoints.md)):
 
 ```scala
 import munit.FunSuite

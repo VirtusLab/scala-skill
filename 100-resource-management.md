@@ -36,5 +36,5 @@ def create(using Ox): Dependencies =
 ```
 
 On scope termination (e.g., SIGTERM via `OxApp` — see [Background
-Processes](02-background-processes.md)), resources are released in reverse
+Processes](110-background-processes.md)), resources are released in reverse
 acquisition order: first the database pool, then the sttp backend.

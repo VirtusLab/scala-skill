@@ -13,7 +13,7 @@
 
 Each API module's companion object extends `EndpointsForDocs` (see
 [Compile-Time Dependency
-Injection](04-compile-time-dependency-injection.md)) and tags its endpoints:
+Injection](130-compile-time-dependency-injection.md)) and tags its endpoints:
 
 ```scala
 object UserApi extends EndpointsForDocs:
