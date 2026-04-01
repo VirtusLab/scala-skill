@@ -71,3 +71,8 @@ the direct-style ecosystem.
 - [SOAP with scalaxb](17-soap-with-scalaxb.md) — XSD-to-Scala code generation,
   SOAP envelope wrapping/unwrapping, Tapir XML codecs for scalaxb types,
   `SOAPAction`-based endpoint routing, SOAP fault error handlers.
+
+- [Functional Patterns in Direct Style](18-functional-patterns.md) — Immutable
+  state case classes with scoped `var` mutation, pure state transitions via
+  `.copy()`, `foldLeft` accumulation, testing without mocks, trait-based effect
+  boundaries.

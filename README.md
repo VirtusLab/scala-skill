@@ -39,7 +39,7 @@ Each chapter covers a single use-case and follows this format:
 
 ## Reference project
 
-All code examples are based on
+Most code examples are based on
 [Bootzooka](https://github.com/softwaremill/bootzooka), a production-ready
 starter project using Tapir, Ox, sttp, and PostgreSQL. Clone it to study the
 patterns before writing.
@@ -87,6 +87,10 @@ Additional documentation sources:
 - **Dependencies are library coordinates only.** No version numbers — they go
   stale. The reader will use the versions from Bootzooka's `build.sbt` or the
   library's latest release.
+- **Show only the essence.** Each code example should illustrate exactly the
+  pattern being discussed. Strip out unrelated features, domain details, and
+  infrastructure that blur the point — the reader can find the full version in
+  the reference project.
 - **Don't duplicate content across chapters.** If authentication is covered in
   chapter 1, chapter 2 can reference it rather than re-explaining the `Fail` ADT
   or `secureEndpoint`.
