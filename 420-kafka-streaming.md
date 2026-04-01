@@ -65,9 +65,12 @@ supervised:
     .pipe(KafkaDrain.runCommit(consumer))
 ```
 
-When committing offsets, the consumer must be shared between subscribe and commit
-stages via `toThreadSafeConsumerWrapper`. Offsets are committed in batches (by
-default, every second), computing the maximum offset per topic-partition.
+> **Required:** The consumer must be shared between subscribe and commit stages
+> via `toThreadSafeConsumerWrapper`. Using separate consumer instances would
+> silently fail to commit offsets.
+
+Offsets are committed in batches (by default, every second), computing the
+maximum offset per topic-partition.
 
 ## Transactional produce-and-commit
 

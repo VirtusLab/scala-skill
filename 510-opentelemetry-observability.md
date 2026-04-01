@@ -68,8 +68,10 @@ val serverOptions: NettySyncServerOptions = NettySyncServerOptions.customiseInte
   .options
 ```
 
-`OpenTelemetryTracing(otel)` is **prepended** so it extracts the `traceparent`
-header and creates a span before any other interceptor runs.
+> **Important:** `OpenTelemetryTracing(otel)` must be **prepended** so it
+> extracts the `traceparent` header and creates a span before any other
+> interceptor runs. Appending it would leave other interceptors without trace
+> context.
 
 ## Server-side metrics
 
@@ -169,6 +171,10 @@ object Main extends OxApp.Simple:
 object Main extends OxApp.Simple:
   InheritableMDC.init
 ```
+
+> **Required:** `InheritableMDC.init` must be called at the class level (not
+> inside `run`), so it runs during class initialization before any MDC usage.
+> Without it, MDC values silently don't propagate across virtual threads.
 
 A custom Tapir interceptor extracts the trace ID from the current span and sets
 it in the MDC:

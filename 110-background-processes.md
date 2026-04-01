@@ -47,9 +47,9 @@ configuration — each background process can define its own schedule.
 `fork` creates a daemon fork — it doesn't prevent the scope from ending (only
 user forks do). `forever` repeats the block indefinitely.
 
-The `try`/`catch` is essential: without it, a single exception would crash the
-fork and terminate the application (supervised scope). Catching `NonFatal`
-lets the fork continue to the next iteration.
+> **Warning:** The `try`/`catch` is essential: without it, a single exception
+> would crash the fork and terminate the application (supervised scope).
+> Catching `NonFatal` lets the fork continue to the next iteration.
 
 ## Starting multiple background processes
 

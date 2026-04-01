@@ -85,9 +85,10 @@ val serverOptions: NettySyncServerOptions = NettySyncServerOptions.customiseInte
   .copy(interruptServerLogicWhenRequestCancelled = false)
 ```
 
-`interruptServerLogicWhenRequestCancelled = false` lets cancelled requests run
-to completion — interrupted JDBC calls can cause HikariCP to mark connections as
-broken.
+> **Warning:** `interruptServerLogicWhenRequestCancelled = false` lets
+> cancelled requests run to completion. The default (interrupt) can cause
+> HikariCP to mark connections as broken when JDBC calls are interrupted
+> mid-flight.
 
 ## Starting the server
 

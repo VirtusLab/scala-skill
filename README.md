@@ -93,6 +93,10 @@ Library documentation:
   pattern being discussed. Strip out unrelated features, domain details, and
   infrastructure that blur the point — the reader can find the full version in
   the reference project.
+- **Use `>` callouts for pitfalls and requirements.** Use blockquote callouts
+  (`> **Warning:**`, `> **Important:**`, `> **Required:**`) for information
+  that is critical to get right, easy to miss, or affects correctness. Don't
+  use callouts for general explanations — those stay as regular prose.
 - **Don't duplicate content across chapters.** If authentication is covered in
   chapter 1, chapter 2 can reference it rather than re-explaining the `Fail` ADT
   or `secureEndpoint`.

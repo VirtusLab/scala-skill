@@ -31,6 +31,10 @@ hikariConfig.setPassword(config.password.value)
 hikariConfig.setThreadFactory(Thread.ofVirtual().factory())
 ```
 
+> **Required:** `setThreadFactory(Thread.ofVirtual().factory())` is needed so
+> HikariCP uses virtual threads internally. Without it, the pool creates
+> platform threads, which can cause thread starvation under load.
+
 ## Schema migrations
 
 Flyway runs migrations at startup with retry:

@@ -143,11 +143,10 @@ private def soapAction(operation: String) =
   header("SOAPAction", s"\"$operation\"").onDecodeFailureNextEndpoint
 ```
 
-`onDecodeFailureNextEndpoint` is critical: when the `SOAPAction` header doesn't
-match, Tapir skips to the next endpoint instead of returning a 400. This lets
-multiple operations share the same path, with the header acting as the
-discriminator — similar to how REST endpoints use different HTTP methods on the
-same path.
+> **Important:** `onDecodeFailureNextEndpoint` is required here — without it,
+> a non-matching `SOAPAction` header returns a 400 instead of trying the next
+> endpoint. This lets multiple operations share the same path, with the header
+> acting as the discriminator.
 
 Each endpoint maps the request type to a response or a SOAP fault. The error
 output uses `statusCode(SC.InternalServerError)` because SOAP conventionally
@@ -180,8 +179,10 @@ def myOperationEndpoint(service: MyService) =
     }
 ```
 
-A catch-all endpoint handles unrecognised `SOAPAction` values. Register it last
-so it only matches after all known operations fail:
+> **Important:** The catch-all endpoint below must be registered last — it
+> matches any `SOAPAction`, so placing it earlier would shadow all real
+> operations.
+
 
 ```scala
 val unknownActionEndpoint =

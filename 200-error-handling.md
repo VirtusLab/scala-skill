@@ -90,8 +90,9 @@ class DB(dataSource: DataSource & Closeable):
 
 `transactEither` ensures that a `Left` result triggers a rollback.
 
-The `NotGiven` constraint makes it a compile error to use `transact` with an
-`Either`-returning body — use `transactEither` instead.
+> **Important:** The `NotGiven` constraint makes it a compile error to use
+> `transact` with an `Either`-returning body — use `transactEither` instead.
+> Using `transact` with `Either` would silently skip rollback on `Left`.
 
 Endpoint handlers use `transactEither` to wrap service calls (see the
 [Authentication](300-authentication.md) chapter for how these handlers are
@@ -127,9 +128,9 @@ val value: Int = result.orThrow
 
 ## Nesting rules
 
-`either` blocks cannot be nested in the same scope. This is a deliberate design
-constraint — nested blocks would create ambiguity about which block an `.ok()`
-call short-circuits to:
+> **Important:** `either` blocks cannot be nested in the same scope — nested
+> blocks would create ambiguity about which block an `.ok()` call
+> short-circuits to. Extract the inner block into a separate method instead.
 
 ```scala
 // This won't compile:
