@@ -16,7 +16,7 @@
   HTTP client to propagate trace context and record outgoing request metrics
 - `"com.softwaremill.ox" %% "otel-context"` — propagates OpenTelemetry context
   across Ox's virtual thread scopes
-- `"io.opentelemetry.instrumentation" % "opentelemetry-runtime-telemetry-java8"`
+- `"io.opentelemetry.instrumentation" % "opentelemetry-runtime-telemetry-java17"`
   — JVM runtime metrics (CPU, memory, GC, threads, classes)
 - `"io.opentelemetry.instrumentation" % "opentelemetry-logback-appender-1.0"` —
   sends Logback log records to OpenTelemetry
@@ -33,20 +33,14 @@ reads settings from environment variables (`OTEL_SERVICE_NAME`,
 
 ```scala
 import io.opentelemetry.sdk.autoconfigure.AutoConfiguredOpenTelemetrySdk
-import io.opentelemetry.instrumentation.runtimemetrics.java8.*
+import io.opentelemetry.instrumentation.runtimemetrics.java17.RuntimeMetrics
 import io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender
 
 private def initializeOtel(): OpenTelemetry =
   AutoConfiguredOpenTelemetrySdk
     .initialize()
     .getOpenTelemetrySdk()
-    .tap { otel =>
-      Classes.registerObservers(otel)
-      Cpu.registerObservers(otel)
-      MemoryPools.registerObservers(otel)
-      Threads.registerObservers(otel)
-      GarbageCollector.registerObservers(otel, false).discard
-    }
+    .tap(otel => RuntimeMetrics.create(otel).discard)
     .tap(OpenTelemetryAppender.install)
 ```
 
