@@ -2,17 +2,17 @@
 
 ## Dependencies
 
-- `"com.softwaremill.ox" %% "core"` — `AtomicReference` integration,
-  structured concurrency scopes, `Channel` for inter-fiber communication
+- `"com.softwaremill.ox" %% "core"` — structured concurrency scopes, `Channel`
+  for inter-fiber communication
 
 ---
 
 ## The problem: concurrent state mutation
 
-When multiple fibers (e.g. a consumer loop and a periodic flush timer) need to
-share mutable state, naive approaches create data races. Virtual threads don't
-change the JVM memory model — `var` writes are not guaranteed visible across
-threads without synchronization.
+When multiple fibers (e.g. a request handler and a periodic background task)
+need to share mutable state, naive approaches create data races. Virtual threads
+don't change the JVM memory model — `var` writes are not guaranteed visible
+across threads without synchronization.
 
 ## Single-owner pattern with channels
 
@@ -27,34 +27,34 @@ import ox.channels.{Channel, ChannelClosedException}
 def run()(using Ox): Unit =
   var state = initialState()
 
-  val flushSignal = Channel.buffered[Unit](1)
+  val saveSignal = Channel.buffered[Unit](1)
 
-  // Timer sends flush signals
+  // Timer sends periodic save signals
   fork:
     forever:
-      sleep(flushInterval)
-      try flushSignal.send(())
+      sleep(saveInterval)
+      try saveSignal.send(())
       catch case _: ChannelClosedException => ()
   .discard
 
-  // Single owner: consumer loop processes events AND flushes
-  dataSource.foreach: item =>
-    state = processItem(state, item)
+  // Single owner: main loop updates state AND saves
+  inputSource.foreach: item =>
+    state = process(state, item)
 
-    // Non-blocking check for flush signal
-    flushSignal.tryReceive() match
+    // Non-blocking check for save signal
+    saveSignal.tryReceive() match
       case _: ChannelClosedException => ()
-      case _ => state = flush(state)
+      case _ => state = save(state)
 ```
 
 > **Important:** State is owned by one fiber only — no concurrent reads or
-> writes. The flush timer does not touch state directly; it sends a signal
-> that the owner fiber acts on at a safe point between events.
+> writes. The timer does not touch state directly; it sends a signal that the
+> owner fiber acts on at a safe point.
 
 ## AtomicReference pattern
 
-When the single-owner pattern doesn't fit (e.g. the data source itself blocks
-the fiber and cannot interleave flush checks), use `AtomicReference` with
+When the single-owner pattern doesn't fit (e.g. the input source itself blocks
+the fiber and cannot interleave signal checks), use `AtomicReference` with
 **atomic read-modify-write** operations:
 
 ```scala
@@ -63,16 +63,16 @@ import java.util.concurrent.atomic.AtomicReference
 def run()(using Ox): Unit =
   val stateRef = AtomicReference(initialState())
 
-  // Flush fiber: atomic read-modify-write
+  // Background fiber: atomic read-modify-write
   fork:
     forever:
-      sleep(flushInterval)
-      stateRef.updateAndGet(flush).discard
+      sleep(saveInterval)
+      stateRef.updateAndGet(save).discard
   .discard
 
-  // Consumer fiber: atomic read-modify-write
-  dataSource.foreach: item =>
-    stateRef.updateAndGet(state => processItem(state, item)).discard
+  // Main fiber: atomic read-modify-write
+  inputSource.foreach: item =>
+    stateRef.updateAndGet(state => process(state, item)).discard
 ```
 
 > **Warning:** Never use `stateRef.get()` followed by `stateRef.set(newState)`.
@@ -80,31 +80,31 @@ def run()(using Ox): Unit =
 > silently overwrites those changes. Always use `updateAndGet` or
 > `getAndUpdate` for atomic read-modify-write.
 
-This requires that `processItem` and `flush` are **pure functions** from old
-state to new state — they cannot read the `AtomicReference` themselves, or
-they'll see stale data:
+This requires that `process` and `save` are **pure functions** from old state to
+new state — they cannot read the `AtomicReference` themselves, or they'll see
+stale data:
 
 ```scala
 // Pure state transitions — no external state reads
-def processItem(state: State, item: Item): State =
-  state.copy(items = state.items.updated(item.key, item.value))
+def process(state: State, item: Item): State =
+  state.copy(counts = state.counts.updated(item.key, state.counts.getOrElse(item.key, 0L) + 1))
 
-def flush(state: State): State =
-  storage.upload(state.pendingData)
-  state.copy(pendingData = Map.empty, dirty = false)
+def save(state: State): State =
+  storage.write(state.counts)
+  state.copy(lastSavedAt = Instant.now())
 ```
 
 ## Extracting return values from `updateAndGet`
 
-When a fiber needs both the updated state and a derived value (e.g. the outcome
-of processing an event), return a tuple in the state and extract it afterward:
+When a fiber needs both the updated state and a derived value (e.g. whether the
+item was accepted or rejected), return both in the state and extract afterward:
 
 ```scala
-case class StateWithResult(state: State, lastOutcome: Outcome)
+case class StateWithResult(state: State, lastResult: Result)
 
 stateRef.updateAndGet: current =>
-  val (newState, outcome) = processItem(current.state, item)
-  StateWithResult(newState, outcome)
+  val (newState, result) = process(current.state, item)
+  StateWithResult(newState, result)
 ```
 
 This avoids the anti-pattern of using a mutable `var` to smuggle values out of
