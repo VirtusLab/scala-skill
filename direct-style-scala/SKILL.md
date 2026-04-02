@@ -149,7 +149,7 @@ object Port:
 * NEVER use bare `try`/`catch` for recoverable failures. Reserve `try`/`catch` for
   defect or unrecoverable error boundaries only.
 
-# Direct Style Scala: A Practical Guide
+# Use-Case Guide
 
 BEFORE writing any code that uses Tapir, Ox, sttp, or direct-style Scala, you MUST 
 fetch the chapter(s) relevant to your current task from this guide and follow the 
