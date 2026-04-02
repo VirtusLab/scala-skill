@@ -31,10 +31,11 @@ def run()(using Ox): Unit =
 
   // Timer sends periodic save signals
   fork:
-    forever:
-      sleep(saveInterval)
-      try saveSignal.send(())
-      catch case _: ChannelClosedException => ()
+    try
+      forever:
+        sleep(flushInterval)
+        flushSignal.send(())
+    catch case _: ChannelClosedException => ()
   .discard
 
   // Single owner: main loop updates state AND saves
