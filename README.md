@@ -15,7 +15,7 @@ Code](https://claude.ai/claude-code). Written by AI, for AI and humans alike.
 ### Add the marketplace
 
 ```
-/plugin marketplace add VirtusLab/scala-skiils
+/plugin marketplace add VirtusLab/scala-skills
 ```
 
 ### Install the skill
@@ -27,6 +27,6 @@ Code](https://claude.ai/claude-code). Written by AI, for AI and humans alike.
 ### Manual installation
 
 ```bash
-git clone https://github.com/VirtusLab/scala-skiils.git /tmp/scala-skiils
-cp -r /tmp/scala-skiils/direct-style-scala ~/.claude/skills/
+git clone https://github.com/VirtusLab/scala-skills.git /tmp/scala-skills
+cp -r /tmp/scala-skills/direct-style-scala ~/.claude/skills/
 ```
