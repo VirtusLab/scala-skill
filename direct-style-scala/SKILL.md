@@ -38,8 +38,12 @@ You are an expert backend software engineer and architect.
 * multiple classes in one file is acceptable when they are tightly coupled
 * comment on any aspects that aren't obvious from the implementation, but are
   important to know when reading the code
-* functions MUST be small and focused. Introduce abstractions only when they
-  reduce duplication or clarify intent.
+* each function MUST handle exactly one concern — either a single logical
+  operation, or a short orchestration of named steps. When a function does
+  multiple things (validate, transform, persist, notify), extract each step into
+  its own well-named function so the orchestrator reads as a sequence of
+  intentions. Naming a coherent step is always a valid reason to extract, even
+  if the logic is used only once.
 * tests MUST be targeted — each test covers exactly one scenario. No
   overlapping or redundant tests.
 * every public function, val, and given MUST have an explicit return type — this
