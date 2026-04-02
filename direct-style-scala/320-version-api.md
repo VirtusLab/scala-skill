@@ -23,7 +23,7 @@ buildInfoKeys := Seq[BuildInfoKey](
 ),
 buildInfoOptions += BuildInfoOption.ToJson,
 buildInfoOptions += BuildInfoOption.ToMap,
-buildInfoPackage := "com.softwaremill.bootzooka.version",
+buildInfoPackage := "com.example.myapp.version",
 buildInfoObject := "BuildInfo"
 ```
 

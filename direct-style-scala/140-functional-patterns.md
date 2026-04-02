@@ -50,9 +50,9 @@ needed.
 ## Pure state transitions
 
 Each state transition is a method that takes the current state and returns a new
-state. The method may perform side effects (writing to files, logging), but the
-state management itself is pure — the caller decides what to do with the
-returned state:
+state. The method may perform side effects (writing to files, logging), but
+state threading is explicit — the caller decides what to do with the returned
+state:
 
 ```scala
 def handleItem(state: ProcessingState, item: Item): ProcessingState =
@@ -169,7 +169,9 @@ trait Store:
   def upload(key: String, source: Path): Unit
 ```
 
-Tests substitute an in-memory implementation that can also simulate failures:
+Tests substitute an in-memory implementation that can also simulate failures.
+Mutable collections are acceptable in test helpers that simulate external
+systems — the "no mutable state" rule applies to production domain logic:
 
 ```scala
 class InMemoryStore extends Store:

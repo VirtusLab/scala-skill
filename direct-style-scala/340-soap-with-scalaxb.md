@@ -19,7 +19,7 @@ configure the output package:
 
 ```scala
 // project/plugins.sbt
-addSbtPlugin("org.scalaxb" % "sbt-scalaxb" % "1.12.2")
+addSbtPlugin("org.scalaxb" % "sbt-scalaxb" % "<latest>")
 
 // build.sbt
 lazy val root = project

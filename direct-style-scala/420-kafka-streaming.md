@@ -92,6 +92,6 @@ supervised:
 Kafka transactions to atomically publish the output records and commit the input
 offsets.
 
-`runDrain()` blocks indefinitely (the Kafka consumer keeps polling), so there's
-no need for `never` in `OxApp`. On scope termination, consumers are closed
-gracefully.
+`runDrain()` blocks indefinitely (the Kafka consumer keeps polling) — do not add
+`never` after a Kafka drain in `OxApp`. On scope termination, consumers are
+closed gracefully.

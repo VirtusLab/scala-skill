@@ -10,15 +10,12 @@
 
 ## Secured endpoints
 
-Two building blocks are defined for all endpoints in the application.
-`baseEndpoint` specifies the error output format (see [Error Output
-Customisation](210-error-output-customisation.md)):
+`baseEndpoint` and `secureEndpoint` are the two building blocks for all
+endpoints. `baseEndpoint` is defined in the error output layer (see [Error
+Output Customisation](210-error-output-customisation.md)). `secureEndpoint`
+adds bearer token authentication:
 
 ```scala
-val baseEndpoint: PublicEndpoint[Unit, Fail, Unit, Any] =
-  endpoint
-    .errorOut(failOutput)
-
 def secureEndpoint[T]: Endpoint[Id[T], Unit, Fail, Unit, Any] =
   baseEndpoint.securityIn(auth.bearer[String]().map(_.asId[T])(_.toString))
 ```

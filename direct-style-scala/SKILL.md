@@ -27,29 +27,51 @@ You are an expert backend software engineer and architect.
 
 # Coding style
 
-* avoid using `{}` and use braceless syntax
-* take care of good naming; responsibilities in code should be segregated
-  between appropriately named entities
+* ALWAYS use braceless syntax — do not use `{}`
+* responsibilities in code MUST be segregated between appropriately named
+  entities
 * when dealing with resources, properly track who owns which resources, and
   ensure proper ordering on cleanup
-* when possible, restrict visibility of classes and top-level constructs to
-  appropriate sub-packages. No need to restrict visibility to the main package.
-* it's fine to create multiple classes in one file, especially if they are used
-  only by that class
+* restrict visibility of classes and top-level constructs to appropriate
+  sub-packages when possible. No need to restrict visibility to the main
+  package.
+* multiple classes in one file is acceptable when they are tightly coupled
 * comment on any aspects that aren't obvious from the implementation, but are
   important to know when reading the code
-* write small, focused functions. Introduce abstractions only when they reduce
-  duplication or clarify intent.
-* write targeted tests, ensuring that each test covers exactly one functionality.
-  Make sure that there are no overlaps, that is that no test is redundant.
-* every public function, val, and given MUST have an explicit return type. This
-  prevents accidental signature drift during refactors.
+* functions MUST be small and focused. Introduce abstractions only when they
+  reduce duplication or clarify intent. See the guide's [Functional
+  Patterns](140-functional-patterns.md) chapter.
+* tests MUST be targeted — each test covers exactly one scenario. No
+  overlapping or redundant tests.
+* every public function, val, and given MUST have an explicit return type — this
+  prevents accidental signature drift during refactors:
+
+```scala
+// Wrong — inferred return type can silently change:
+def findUser(id: Id[User])(using DbTx) =
+  userModel.findById(id).toRight(Fail.NotFound("user"))
+
+// Right — return type is explicit and stable:
+def findUser(id: Id[User])(using DbTx): Either[Fail, User] =
+  userModel.findById(id).toRight(Fail.NotFound("user"))
+```
+
+# Direct-style Scala
+
+* in Tapir, use `.handle` / `.handleSecurity` / `.handleSuccess` to wire
+  endpoint logic — NEVER use `.serverLogic` / `.serverSecurityLogic`. The
+  `.handle` family is the direct-style API. The `.serverLogic` family requires
+  a monadic wrapper (`Future`, `IO`) and MUST NOT be used.
+* only propagate `(using Ox)` when the method genuinely needs to start forks or
+  register resources in the caller's scope. Otherwise, create a local
+  `supervised` block. See the guide's [Concurrency](150-shared-state-across-fibers.md)
+  chapter.
 
 # Functional programming
 
-* prefer pure functions, immutable data, higher-order functions, ADTs. Avoid
-  loops and mutable state; never use shared mutable state.
-* APIs must be **lawful**: given identical arguments and explicit dependencies,
+* use pure functions, immutable data, higher-order functions, ADTs. Avoid loops
+  and mutable state. NEVER use shared mutable state.
+* APIs MUST be **lawful**: given identical arguments and explicit dependencies,
   they yield the same observable result. Do not hide dependencies like `Clock`,
   `Random`, or `UUID` inside methods — pass them explicitly or capture them in
   the class constructor:
@@ -70,63 +92,45 @@ class OrderService(clock: Clock, idGenerator: () => UUID):
     Confirmation(id, now)
 ```
 
-## Domain types over primitives
-
-* avoid `String`, `Int`, `Long`, and `Boolean` for domain values. Wrap them in
-  opaque types, enums, or small case classes so the compiler prevents mixing
-  them up (e.g. `UserId`, `Email`, `Port`).
-* avoid boolean parameters and boolean fields — they erase meaning at the call
-  site. Use enums or named alternatives instead:
-
-```scala
-// Wrong — what does `true` mean?
-case class State(key: String, dirty: Boolean)
-
-// Right — self-documenting:
-enum SyncStatus:
-  case Clean, Dirty
-case class State(key: String, syncStatus: SyncStatus)
-```
-
-## Truthful signatures
-
-* if a method can fail, its return type MUST reflect that — return
-  `Either[E, T]`, not `T` with a hidden exception.
-* if a value can be absent, use `Option[T]`, not `null` or a sentinel value.
-* model different states of an entity as separate types rather than using
-  `Option` fields and hoping callers check.
-
-## Make illegal states unrepresentable
-
-* design domain models so that invalid data cannot be constructed. Use enums,
-  opaque types, smart constructors, or refined types to encode invariants.
-
-## Error handling
-
-* return `Either[E, A]` for expected, recoverable failures (domain-level
-  errors). Throw exceptions only for defects (bugs, unrecoverable failures).
-  See the guide's [Error Handling](200-error-handling.md) chapter for
-  composition patterns.
-* define sealed-trait or enum error hierarchies — avoid stringly-typed errors:
+* wrap `String`, `Int`, `Long`, and `Boolean` domain values in opaque types or
+  enums — NEVER use raw primitives for domain concepts. See the guide's
+  [Functional Patterns](140-functional-patterns.md) chapter for details.
+* if a method can fail, its return type MUST be `Either[E, T]` — NEVER throw
+  exceptions for expected failures. See the guide's [Error
+  Handling](200-error-handling.md) chapter.
+* if a value can be absent, use `Option[T]` — NEVER use `null` or sentinel
+  values. `Option` is for presence/absence only, not for errors.
+* model different states of an entity as separate types — NEVER use `Option`
+  fields to represent state transitions:
 
 ```scala
-// Wrong — stringly-typed, no exhaustiveness checking:
-case class AppError(code: String, message: String)
-Left(AppError("NOT_FOUND", "User 42 not found"))
+// Wrong — callers must remember to check confirmedAt:
+case class Order(id: Id[Order], items: List[Item], confirmedAt: Option[Instant])
 
-// Right — compiler-checked, pattern-matchable:
-enum AppError:
-  case NotFound(entity: String, id: String)
-  case InvalidInput(field: String, reason: String)
-Left(AppError.NotFound("user", "42"))
+// Right — the type tells you what state the order is in:
+case class PendingOrder(id: Id[Order], items: List[Item])
+case class ConfirmedOrder(id: Id[Order], items: List[Item], confirmedAt: Instant)
 ```
-* **never use bare `try`/`catch` for expected failures**. Reserve `try`/`catch`
-  for defect boundaries only (e.g. `catch NonFatal` at the top of a processing
-  loop to log and continue). To convert exceptions from Java/third-party APIs
-  into `Either`, see the guide's [Error Handling](200-error-handling.md)
-  chapter.
-* `Option` is not for errors — use it only for presence/absence where absence
-  is perfectly ordinary.
+
+* design domain models so that invalid data CANNOT be constructed. Use enums,
+  opaque types, or smart constructors to encode invariants:
+
+```scala
+// Wrong — any string is accepted:
+def setPort(port: Int): Unit
+
+// Right — invalid values are rejected at construction:
+opaque type Port = Int
+object Port:
+  def apply(value: Int): Either[String, Port] =
+    if value >= 1 && value <= 65535 then Right(value)
+    else Left(s"Port out of range: $value")
+```
+
+* define sealed-trait or enum error hierarchies — NEVER use stringly-typed
+  errors. See the guide's [Error Handling](200-error-handling.md) chapter.
+* NEVER use bare `try`/`catch` for expected failures. Reserve `try`/`catch` for
+  defect boundaries only.
 
 # Direct Style Scala: A Practical Guide
 
