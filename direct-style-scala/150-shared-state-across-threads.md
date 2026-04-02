@@ -1,4 +1,4 @@
-# Concurrency and Inter-Fiber Communication
+# Concurrency and Inter-Thread Communication
 
 ## Dependencies
 
@@ -8,7 +8,7 @@
 
 ## Channels
 
-Channels are the primary mechanism for communication between fibers in Ox. A
+Channels are the primary mechanism for communication between threads in Ox. A
 channel is a typed, backpressure-aware queue that supports completion and error
 propagation:
 
@@ -33,9 +33,9 @@ supervised:
 `send` blocks when the buffer is full; `receive` blocks when the buffer is
 empty. Since Ox runs on virtual threads, blocking is cheap.
 
-### Signaling between fibers
+### Signaling between threads
 
-Use a channel instead of a shared flag when one fiber needs to signal another.
+Use a channel instead of a shared flag when one thread needs to signal another.
 For example, a timer that triggers periodic saves:
 
 ```scala
@@ -52,7 +52,7 @@ supervised:
   inputSource.foreach: item =>
     state = process(state, item)
 
-  // Meanwhile, a separate fiber handles save triggers:
+  // Meanwhile, a separate thread handles save triggers:
   fork:
     repeatWhile:
       saveTrigger.receiveSafe() match
@@ -66,9 +66,9 @@ supervised:
 > structured concurrency — when the scope ends, channel operations are
 > interrupted cleanly.
 
-### Request-response between fibers
+### Request-response between threads
 
-When a fiber needs a result back, send a response channel along with the
+When a thread needs a result back, send a response channel along with the
 request:
 
 ```scala
@@ -77,7 +77,7 @@ case class Request(query: String, replyTo: Channel[Result])
 supervised:
   val requests = Channel.bufferedDefault[Request]
 
-  // Worker fiber
+  // Worker thread
   fork:
     repeatWhile:
       requests.receiveSafe() match
@@ -87,7 +87,7 @@ supervised:
           req.replyTo.send(result)
           true
 
-  // Client fiber
+  // Client thread
   val replyTo = Channel.rendezvous[Result]
   requests.send(Request("lookup", replyTo))
   val result = replyTo.receive()
@@ -95,9 +95,9 @@ supervised:
 
 ## Actors
 
-When multiple fibers need serialized access to a mutable object, use Ox's
+When multiple threads need serialized access to a mutable object, use Ox's
 built-in `Actor`. It guarantees that method invocations happen one at a time,
-even when called from multiple fibers:
+even when called from multiple threads:
 
 ```scala
 import ox.channels.Actor
@@ -132,7 +132,7 @@ operations.
 ## AtomicReference as a last resort
 
 For simple cases where a full channel or actor is overkill (e.g. a shared
-counter or a single configuration value read by many fibers), `AtomicReference`
+counter or a single configuration value read by many threads), `AtomicReference`
 with atomic read-modify-write operations works:
 
 ```scala
@@ -140,15 +140,15 @@ import java.util.concurrent.atomic.AtomicReference
 
 val stateRef = AtomicReference(initialState())
 
-// In fiber A:
+// In thread A:
 stateRef.updateAndGet(state => process(state, item)).discard
 
-// In fiber B:
+// In thread B:
 stateRef.updateAndGet(state => process(state, otherItem)).discard
 ```
 
 > **Warning:** Never use `stateRef.get()` followed by `stateRef.set(newState)`.
-> Another fiber can modify the state between the get and set, silently
+> Another thread can modify the state between the get and set, silently
 > overwriting those changes. Always use `updateAndGet` or `getAndUpdate`.
 
 > **Warning:** `updateAndGet` may retry the function under contention (CAS
@@ -180,6 +180,6 @@ def processAll(items: List[Item]): Unit =
 
 | Pattern | Use when |
 |---------|----------|
-| **Channel** | Fibers need to communicate data or signals. The default choice. |
-| **Actor** | Multiple fibers need serialized access to a mutable object. |
+| **Channel** | Threads need to communicate data or signals. The default choice. |
+| **Actor** | Multiple threads need serialized access to a mutable object. |
 | **AtomicReference** | Simple shared value with pure update functions. No I/O in updates. |

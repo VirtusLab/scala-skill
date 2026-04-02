@@ -1,0 +1,28 @@
+{
+  "name": "virtuslab-skills",
+  "description": "Claude Code Scala skills by VirtusLab",
+  "homepage": "https://github.com/VirtusLab/direct-style-guide",
+  "repository": "https://github.com/VirtusLab/direct-style-guide",
+  "plugins": [
+    {
+      "name": "direct-style-scala",
+      "source": "./direct-style-scala",
+      "description": "Direct-style Scala 3 with Tapir, Ox, and sttp — patterns, error handling, concurrency, observability",
+      "version": "1.0.0",
+      "author": {
+        "name": "VirtusLab"
+      },
+      "keywords": [
+        "scala",
+        "tapir",
+        "ox",
+        "sttp",
+        "direct-style",
+        "virtual-threads",
+        "functional programming",
+        "concurrency"
+      ],
+      "category": "development"
+    }
+  ]
+}

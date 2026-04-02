@@ -14,8 +14,6 @@ manages all forks and resources:
 
 ```scala
 object Main extends OxApp.Simple:
-  InheritableMDC.init
-
   override def run(using Ox): Unit =
     val deps = Dependencies.create
     deps.emailService.startProcesses()
@@ -32,13 +30,11 @@ Background processes use `fork` + `forever` + `sleep` to create periodic loops:
 
 ```scala
 private def foreverPeriodically(errorMsg: String)(t: => Unit)(using Ox): Fork[Nothing] =
-  fork {
-    forever {
+  fork:
+    forever:
       sleep(config.emailSendInterval)
       try t
       catch case NonFatal(e) => logger.error(errorMsg, e)
-    }
-  }
 ```
 
 The interval (`config.emailSendInterval`) comes from the service's own

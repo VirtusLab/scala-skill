@@ -39,8 +39,7 @@ You are an expert backend software engineer and architect.
 * comment on any aspects that aren't obvious from the implementation, but are
   important to know when reading the code
 * functions MUST be small and focused. Introduce abstractions only when they
-  reduce duplication or clarify intent. See the guide's [Functional
-  Patterns](140-functional-patterns.md) chapter.
+  reduce duplication or clarify intent.
 * tests MUST be targeted — each test covers exactly one scenario. No
   overlapping or redundant tests.
 * every public function, val, and given MUST have an explicit return type — this
@@ -64,8 +63,7 @@ def findUser(id: Id[User])(using DbTx): Either[Fail, User] =
   a monadic wrapper (`Future`, `IO`) and MUST NOT be used.
 * only propagate `(using Ox)` when the method genuinely needs to start forks or
   register resources in the caller's scope. Otherwise, create a local
-  `supervised` block. See the guide's [Concurrency](150-shared-state-across-fibers.md)
-  chapter.
+  `supervised` block.
 
 # Functional programming
 
@@ -93,11 +91,9 @@ class OrderService(clock: Clock, idGenerator: () => UUID):
 ```
 
 * wrap `String`, `Int`, `Long`, and `Boolean` domain values in opaque types or
-  enums — NEVER use raw primitives for domain concepts. See the guide's
-  [Functional Patterns](140-functional-patterns.md) chapter for details.
+  enums — NEVER use raw primitives for domain concepts.
 * if a method can fail, its return type MUST be `Either[E, T]` — NEVER throw
-  exceptions for expected failures. See the guide's [Error
-  Handling](200-error-handling.md) chapter.
+  exceptions for recoverable failures. 
 * if a value can be absent, use `Option[T]` — NEVER use `null` or sentinel
   values. `Option` is for presence/absence only, not for errors.
 * model different states of an entity as separate types — NEVER use `Option`
@@ -128,9 +124,9 @@ object Port:
 ```
 
 * define sealed-trait or enum error hierarchies — NEVER use stringly-typed
-  errors. See the guide's [Error Handling](200-error-handling.md) chapter.
-* NEVER use bare `try`/`catch` for expected failures. Reserve `try`/`catch` for
-  defect boundaries only.
+  errors.
+* NEVER use bare `try`/`catch` for recoverable failures. Reserve `try`/`catch` for
+  defect or unrecoverable error boundaries only.
 
 # Direct Style Scala: A Practical Guide
 
@@ -175,7 +171,7 @@ https://raw.githubusercontent.com/VirtusLab/direct-style-guide/refs/heads/master
   `foldLeft` accumulation, handling failures with `either:`, testing without
   mocks, trait-based effect boundaries.
 
-- [Concurrency and Inter-Fiber Communication](150-shared-state-across-fibers.md)
+- [Concurrency and Inter-Thread Communication](150-shared-state-across-threads.md)
   — Channels for signaling and data exchange, actors for serialized mutable
   state, `AtomicReference` as a last resort.
 
