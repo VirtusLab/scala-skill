@@ -17,7 +17,7 @@ failure?
   Examples: validation errors, not-found conditions, conflicts, unauthorized
   access.
 
-- **Unrecoverable** — the caller cannot fix it; the current fiber, request, or
+- **Unrecoverable** — the caller cannot handle; the current thread, request, or
   processing unit should be terminated. Throw an exception. Ox's supervised
   scopes, `par`, and `race` handle propagation and cleanup automatically.
   Examples: bugs, database connection failures, corrupted data,

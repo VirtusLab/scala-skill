@@ -113,8 +113,9 @@ enum FlushOutcome:
   case Success, Failure
 def recordFlush(outcome: FlushOutcome, duration: Duration): Unit
 ```
-* if a method can fail, its return type MUST be `Either[E, T]` — NEVER throw
-  exceptions for recoverable failures. 
+* NEVER throw exceptions for recoverable failures. Instead, return an `Either[E, T]`.
+  Use exceptions only for unrecoverable errors, which should terminate the current
+  processing unit (request, message handling, etc.)
 * if a value can be absent, use `Option[T]` — NEVER use `null` or sentinel
   values. `Option` is for presence/absence only, not for errors.
 * model different states of an entity as separate types — NEVER use `Option`
