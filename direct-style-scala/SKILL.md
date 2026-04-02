@@ -21,11 +21,9 @@ You are an expert backend software engineer and architect.
 * before committing, ALWAYS format all changed Scala files using the sbt
   `scalafmt` plugin: `sbt --client scalafmtAll`
 * the project MUST compile with zero warnings. Ensure `build.sbt` includes
-  `-Xfatal-warnings`, `-Wunused:all`, `-Wvalue-discard`, `-Wnonunit-statement`
-  in `scalacOptions`. `-Xfatal-warnings` is required — without it, warnings are
-  advisory only and do not fail the build. Fix warnings in code; only use
-  `@nowarn` for generated code or unfixable third-party issues (with a comment
-  explaining why).
+  `-Wunused:all`, `-Wvalue-discard`, `-Wnonunit-statement` in `scalacOptions`.
+  Fix warnings in code; only use `@nowarn` for generated code or unfixable
+  third-party issues (with a comment explaining why).
 
 # Coding style
 
@@ -57,33 +55,10 @@ def findUser(id: Id[User])(using DbTx): Either[Fail, User] =
   userModel.findById(id).toRight(Fail.NotFound("user"))
 ```
 
-# Large data and external APIs
+# Performance
 
-* NEVER materialize unbounded data into memory. Use streaming alternatives:
-  - `Files.readAllLines` → `Files.lines` (returns a lazy `java.util.stream.Stream`)
-    or `scala.io.Source.getLines()` (returns an `Iterator`)
-  - `Files.readAllBytes` → `Files.newInputStream` with buffered reading
-  - collection `.toList` on paginated API results → iterator/flow that fetches
-    pages on demand
-* when calling paginated external APIs (S3 `listObjectsV2`, database queries),
-  always handle pagination. A single-page response silently drops data when the
-  result set exceeds the page size:
-
-```scala
-// Wrong — only reads first page (max 1000 keys):
-def listKeys(prefix: String): List[String] =
-  val response = s3Client.listObjectsV2(request)
-  response.contents().asScala.map(_.key()).toList
-
-// Right — uses paginator to iterate all pages lazily:
-def listKeys(prefix: String): List[String] =
-  s3Client
-    .listObjectsV2Paginator(request)
-    .contents()
-    .stream()
-    .map(_.key())
-    .toList  // or .iterator() if the caller can stream
-```
+* NEVER materialize unbounded data into memory. Use streaming with `Flow` or
+  paging to process large datasets and paginated API results incrementally.
 
 # Direct-style Scala
 
@@ -122,7 +97,7 @@ class OrderService(clock: Clock, idGenerator: () => UUID):
 
 * wrap `String`, `Int`, `Long`, and `Boolean` domain values in opaque types or
   enums — NEVER use raw primitives for domain concepts. This applies to
-  identifiers (`TrainNumber`, `StationCode`), quantities (`DelayMinutes`), and
+  identifiers (`OrderId`, `ProductCode`), quantities (`Quantity`, `Amount`), and
   configuration values (`Port`, `TopicName`). When a generated library (e.g.
   scalaxb) produces raw `String` fields, introduce opaque types at the boundary
   where generated types are converted to domain types.
@@ -136,7 +111,7 @@ def recordFlush(success: Boolean, durationMs: Double): Unit
 // Right — intent is unambiguous:
 enum FlushOutcome:
   case Success, Failure
-def recordFlush(outcome: FlushOutcome, durationMs: Double): Unit
+def recordFlush(outcome: FlushOutcome, duration: Duration): Unit
 ```
 * if a method can fail, its return type MUST be `Either[E, T]` — NEVER throw
   exceptions for recoverable failures. 
@@ -173,26 +148,6 @@ object Port:
   errors.
 * NEVER use bare `try`/`catch` for recoverable failures. Reserve `try`/`catch` for
   defect or unrecoverable error boundaries only.
-* when calling external APIs (S3, Kafka, HTTP clients, file I/O), wrap every
-  call that can throw in `Try` or `either.catching` — even inside methods that
-  already catch some specific exceptions. A `catch` for one exception type
-  (e.g. `NoSuchKeyException`) silently leaks all others:
-
-```scala
-// Wrong — catches one exception, leaks network/auth/timeout errors:
-def download(key: String): Option[Path] =
-  try
-    Some(s3Client.getObject(request, tempFile))
-  catch case _: NoSuchKeyException => None
-
-// Right — catch the expected case, wrap the rest:
-def download(key: String): Either[StorageError, Option[Path]] =
-  Try:
-    Some(s3Client.getObject(request, tempFile))
-  .recover:
-    case _: NoSuchKeyException => None
-  .toEither.left.map(e => StorageError.AccessFailed(key, e))
-```
 
 # Direct Style Scala: A Practical Guide
 
