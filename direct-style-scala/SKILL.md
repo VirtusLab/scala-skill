@@ -182,9 +182,9 @@ https://raw.githubusercontent.com/VirtusLab/direct-style-guide/refs/heads/master
   `foldLeft` accumulation, handling failures with `either:`, testing without
   mocks, trait-based effect boundaries.
 
-- [Shared State Across Fibers](150-shared-state-across-fibers.md) —
-  Single-owner pattern with channels, `AtomicReference` with `updateAndGet`,
-  extracting return values, choosing the right pattern.
+- [Concurrency and Inter-Fiber Communication](150-shared-state-across-fibers.md)
+  — Channels for signaling and data exchange, actors for serialized mutable
+  state, `AtomicReference` as a last resort.
 
 ## Error Handling
 

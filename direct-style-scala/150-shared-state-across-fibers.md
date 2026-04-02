@@ -1,126 +1,164 @@
-# Shared State Across Fibers
+# Concurrency and Inter-Fiber Communication
 
 ## Dependencies
 
-- `"com.softwaremill.ox" %% "core"` — structured concurrency scopes
+- `"com.softwaremill.ox" %% "core"` — `supervised`, `fork`, channels, actors
 
 ---
 
-## The problem: concurrent state mutation
+## Channels
 
-When multiple fibers (e.g. a request handler and a periodic background task)
-need to share mutable state, naive approaches create data races. Virtual threads
-don't change the JVM memory model — `var` writes are not guaranteed visible
-across threads without synchronization.
-
-## Single-owner pattern
-
-The safest approach is to confine all state mutation to a single fiber. Other
-fibers only set a lightweight flag; the owner fiber checks it at safe points:
+Channels are the primary mechanism for communication between fibers in Ox. A
+channel is a typed, backpressure-aware queue that supports completion and error
+propagation:
 
 ```scala
 import ox.*
-import java.util.concurrent.atomic.AtomicBoolean
+import ox.channels.*
 
-def run()(using Ox): Unit =
-  var state = initialState()
+supervised:
+  val ch = Channel.bufferedDefault[String]
 
-  val saveRequested = AtomicBoolean(false)
+  fork:
+    ch.send("hello")
+    ch.send("world")
+    ch.done()
 
-  // Timer sets the flag periodically
+  var msg = ch.receiveSafe()
+  while msg != ChannelClosed.Done do
+    println(msg)
+    msg = ch.receiveSafe()
+```
+
+`send` blocks when the buffer is full; `receive` blocks when the buffer is
+empty. Since Ox runs on virtual threads, blocking is cheap.
+
+### Signaling between fibers
+
+Use a channel instead of a shared flag when one fiber needs to signal another.
+For example, a timer that triggers periodic saves:
+
+```scala
+supervised:
+  val saveTrigger = Channel.rendezvous[Unit]
+
   fork:
     forever:
       sleep(saveInterval)
-      saveRequested.set(true)
+      saveTrigger.send(())
   .discard
 
-  // Single owner: main loop updates state AND checks the flag
+  var state = init()
   inputSource.foreach: item =>
     state = process(state, item)
 
-    if saveRequested.compareAndSet(true, false) then
-      state = save(state)
+  // Meanwhile, a separate fiber handles save triggers:
+  fork:
+    repeatWhile:
+      saveTrigger.receiveSafe() match
+        case ChannelClosed.Done => false
+        case _                 => save(state); true
+  .discard
 ```
 
-> **Important:** State is owned by one fiber only — no concurrent reads or
-> writes. The timer does not touch state directly; it sets a flag that the
-> owner fiber checks at a safe point between items.
+> **Important:** Prefer channels over `AtomicBoolean` flags or shared `var`s.
+> Channels are type-safe, support backpressure, and integrate with Ox's
+> structured concurrency — when the scope ends, channel operations are
+> interrupted cleanly.
 
-## AtomicReference pattern
+### Request-response between fibers
 
-When the single-owner pattern doesn't fit (e.g. the input source itself blocks
-the fiber and cannot interleave flag checks), use `AtomicReference` with
-**atomic read-modify-write** operations:
+When a fiber needs a result back, send a response channel along with the
+request:
+
+```scala
+case class Request(query: String, replyTo: Channel[Result])
+
+supervised:
+  val requests = Channel.bufferedDefault[Request]
+
+  // Worker fiber
+  fork:
+    repeatWhile:
+      requests.receiveSafe() match
+        case ChannelClosed.Done => false
+        case req: Request =>
+          val result = processQuery(req.query)
+          req.replyTo.send(result)
+          true
+
+  // Client fiber
+  val replyTo = Channel.rendezvous[Result]
+  requests.send(Request("lookup", replyTo))
+  val result = replyTo.receive()
+```
+
+## Actors
+
+When multiple fibers need serialized access to a mutable object, use Ox's
+built-in `Actor`. It guarantees that method invocations happen one at a time,
+even when called from multiple fibers:
+
+```scala
+import ox.channels.Actor
+
+class StateHolder:
+  private var counter: Int = 0
+
+  def increment(delta: Int): Int =
+    counter += delta
+    counter
+
+  def current: Int = counter
+
+supervised:
+  val ref = Actor.create(new StateHolder)
+
+  fork(ref.ask(_.increment(5))).discard
+  fork(ref.ask(_.increment(3))).discard
+
+  // later
+  val total = ref.ask(_.current)
+```
+
+`ask` blocks until the invocation completes and returns the result. `tell`
+schedules the invocation without waiting — use it for fire-and-forget
+operations.
+
+> **Important:** Actors use channels internally — they are not a separate
+> concurrency primitive, but a convenience for serialized access patterns.
+> Prefer actors over manual locking or `synchronized` blocks.
+
+## AtomicReference as a last resort
+
+For simple cases where a full channel or actor is overkill (e.g. a shared
+counter or a single configuration value read by many fibers), `AtomicReference`
+with atomic read-modify-write operations works:
 
 ```scala
 import java.util.concurrent.atomic.AtomicReference
 
-def run()(using Ox): Unit =
-  val stateRef = new AtomicReference(initialState())
+val stateRef = AtomicReference(initialState())
 
-  // Background fiber: atomic read-modify-write
-  fork:
-    forever:
-      sleep(saveInterval)
-      stateRef.updateAndGet(save).discard
-  .discard
+// In fiber A:
+stateRef.updateAndGet(state => process(state, item)).discard
 
-  // Main fiber: atomic read-modify-write
-  inputSource.foreach: item =>
-    stateRef.updateAndGet(state => process(state, item)).discard
+// In fiber B:
+stateRef.updateAndGet(state => process(state, otherItem)).discard
 ```
 
 > **Warning:** Never use `stateRef.get()` followed by `stateRef.set(newState)`.
-> Another fiber can modify the state between the get and set, and the set
-> silently overwrites those changes. Always use `updateAndGet` or
-> `getAndUpdate` for atomic read-modify-write.
-
-This requires that `process` and `save` are **pure functions** from old state to
-new state — they cannot read the `AtomicReference` themselves, or they'll see
-stale data.
+> Another fiber can modify the state between the get and set, silently
+> overwriting those changes. Always use `updateAndGet` or `getAndUpdate`.
 
 > **Warning:** `updateAndGet` may retry the function under contention (CAS
-> loop). The function passed to it must be side-effect-free. If `save` performs
-> I/O (e.g. writing to storage), do it outside the atomic update — compute the
-> new state atomically, then perform I/O with the result:
+> loop). The function passed to it must be side-effect-free — no I/O, no
+> logging, no channel operations.
 
-```scala
-// Pure state transition — no I/O inside updateAndGet
-def markSaved(state: State): State =
-  state.copy(pending = Set.empty, lastSavedAt = Instant.now())
-
-// I/O happens outside the atomic update
-val snapshot = stateRef.get()
-storage.write(snapshot.pending)
-stateRef.updateAndGet(markSaved).discard
-```
-
-## Extracting return values from `updateAndGet`
-
-When a fiber needs both the updated state and a derived value (e.g. whether the
-item was accepted or rejected), return both in the state and extract afterward:
-
-```scala
-case class StateWithResult(state: State, lastResult: Result)
-
-val updated = stateRef.updateAndGet: current =>
-  val (newState, result) = process(current.state, item)
-  StateWithResult(newState, result)
-val result = updated.lastResult
-```
-
-This avoids the anti-pattern of using a mutable `var` to smuggle values out of
-the `updateAndGet` lambda.
-
-## When to use which
+## Choosing the right pattern
 
 | Pattern | Use when |
 |---------|----------|
-| **Single-owner + flag** | One fiber owns all state; others only signal. Simplest, no races possible. |
-| **AtomicReference + updateAndGet** | Multiple fibers must independently update state; state transitions are pure functions with no I/O. |
-| **Ox supervised + actor** | Complex protocols where fibers need request/response interaction, not just fire-and-forget signals. |
-
-> **Important:** Avoid sharing mutable state across fibers whenever possible.
-> Restructure the design so one fiber owns the state and others communicate
-> through flags or channels. Use `AtomicReference` only when the single-owner
-> pattern is impractical.
+| **Channel** | Fibers need to communicate data or signals. The default choice. |
+| **Actor** | Multiple fibers need serialized access to a mutable object. |
+| **AtomicReference** | Simple shared value with pure update functions. No I/O in updates. |
