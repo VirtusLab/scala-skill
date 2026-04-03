@@ -76,8 +76,35 @@ def findUser(id: Id[User])(using DbTx): Either[Fail, User] =
 
 # Functional programming
 
-* use pure functions, immutable data, higher-order functions, ADTs. Avoid loops
-  and mutable state. NEVER use shared mutable state.
+* use pure functions, immutable data, higher-order functions, ADTs. NEVER use
+  shared mutable state.
+* `var` declarations MUST be inside methods (e.g. processing loops), **never**
+  as class fields. Class-level `var`s break reasoning and testability. Use only
+  immutable collections (`Map`, `Set`, `List`) — never `mutable.Map`,
+  `mutable.Set`, `mutable.Buffer`.
+* model state as an immutable case class. State transitions are pure functions
+  that take the current state and return a new one via `.copy()`. Confine the
+  `var` that threads state to the smallest possible scope:
+
+```scala
+case class ProcessingState(
+    processed: Map[String, Long] = Map.empty,
+    pending: Set[String] = Set.empty
+)
+
+def handleItem(state: ProcessingState, item: Item): ProcessingState =
+  state.copy(processed = state.processed.updated(item.key, item.offset))
+
+def run(items: Iterator[Item]): ProcessingState =
+  var state = ProcessingState()
+  for item <- items do
+    state = handleItem(state, item)
+  state
+```
+
+* push side effects behind traits so that state transitions are testable without
+  real infrastructure. Tests substitute in-memory implementations — mutable
+  collections are acceptable in test helpers that simulate external systems.
 * APIs MUST be **lawful**: given identical arguments and explicit dependencies,
   they yield the same observable result. Do not hide dependencies like `Clock`,
   `Random`, or `UUID` inside methods — pass them explicitly or capture them in
@@ -191,11 +218,6 @@ https://raw.githubusercontent.com/VirtusLab/scala-skill/refs/heads/master/direct
 - [Compile-Time Dependency Injection](130-compile-time-dependency-injection.md)
   — MacWire `autowire`, `autowireMembersOf` for config extraction, `wireList`
   for collecting endpoints.
-
-- [Functional Patterns in Direct Style](140-functional-patterns.md) — Immutable
-  state with scoped `var` mutation, pure state transitions via `.copy()`,
-  `foldLeft` accumulation, handling failures with `either:`, testing without
-  mocks, trait-based effect boundaries.
 
 - [Concurrency and Inter-Thread Communication](150-shared-state-across-threads.md)
   — Flows for declarative concurrent pipelines (`mapPar`, `merge`,
