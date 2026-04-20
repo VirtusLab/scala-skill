@@ -1,12 +1,14 @@
 {
   "name": "direct-style-scala",
   "description": "Direct-style Scala 3 with Tapir, Ox, and sttp — patterns, error handling, concurrency, observability",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": {
     "name": "VirtusLab"
   },
   "homepage": "https://github.com/VirtusLab/scala-skill/tree/master/direct-style-scala",
   "repository": "https://github.com/VirtusLab/scala-skill",
   "license": "Apache-2.0",
-  "skills": ["./"]
+  "skills": [
+    "./"
+  ]
 }
