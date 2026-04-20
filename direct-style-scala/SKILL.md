@@ -204,6 +204,11 @@ https://raw.githubusercontent.com/virtuslab/scala-skill/refs/heads/master/direct
 
 ## Application Structure
 
+- [New Project Setup](140-new-project-setup.md) — minimal direct-style
+  Scala project skeleton with sbt and Ox: directory layout, `build.sbt`,
+  required `scalacOptions`, `OxApp.Simple` entry point. adopt-tapir as a
+  starting point for HTTP projects.
+
 - [Resource Management](100-resource-management.md) — `useInScope`,
   `useCloseableInScope`, reverse-order release, scope-based cleanup.
 
