@@ -7,5 +7,5 @@ A skill for writing direct-style Scala 3 applications with virtual threads
 ## Prerequisites
 
 This skill assumes the
-[Metals MCP](https://scalameta.org/metals/docs/integrations/mcp-server)
+[Metals MCP](https://softwaremill.com/a-beginners-guide-to-using-scala-metals-with-its-model-context-protocol-server/)
 server is available and uses [sbt](https://www.scala-sbt.org) as the build tool.
