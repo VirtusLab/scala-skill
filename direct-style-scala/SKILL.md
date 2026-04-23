@@ -1,6 +1,6 @@
 ---
 name: direct-style-scala
-description: This skills covers direct-style Scala, Ox structured concurrency, synchronous Tapir. Auto-load when writing Scala code, applications that use Ox, direct-style, or synchronous Tapir interpreters.
+description: Scala coding style, tooling, and functional programming guidance, with dedicated sections on direct-style Scala, Ox structured concurrency, and synchronous Tapir. Auto-load for any task involving Scala code, especially when using direct-style or "plain" Scala.
 ---
 
 You are an expert backend software engineer and architect.
