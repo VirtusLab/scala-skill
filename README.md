@@ -1,7 +1,7 @@
 # Claude Code Scala Skills
 
 A collection of [Scala](https://www.scala-lang.org) skills for [Claude
-Code](https://claude.ai/claude-code). Written by AI, for AI and humans alike.
+Code](https://claude.ai/claude-code). Written by AI, for AIs and humans alike.
 
 ## Available skills
 
