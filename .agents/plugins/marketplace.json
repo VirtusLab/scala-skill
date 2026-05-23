@@ -8,7 +8,7 @@
       "name": "direct-style-scala",
       "source": {
         "source": "local",
-        "path": "./"
+        "path": "./direct-style-scala"
       },
       "policy": {
         "installation": "AVAILABLE",

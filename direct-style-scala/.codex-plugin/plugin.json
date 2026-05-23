@@ -19,7 +19,7 @@
     "functional programming",
     "concurrency"
   ],
-  "skills": "./direct-style-scala",
+  "skills": "./codex-skill",
   "interface": {
     "displayName": "Direct-style Scala",
     "shortDescription": "Scala coding style, tooling, and functional programming guidance.",

@@ -45,6 +45,12 @@ codex plugin marketplace add virtuslab/scala-skill
 
 Then open Codex and install **direct-style-scala** from `/plugins`.
 
+If you added the marketplace before, refresh it first:
+
+```bash
+codex plugin marketplace upgrade virtuslab-scala-skill
+```
+
 For local development, add a checkout as a marketplace instead:
 
 ```bash
