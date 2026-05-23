@@ -1,0 +1,20 @@
+{
+  "name": "virtuslab-scala-skill",
+  "interface": {
+    "displayName": "VirtusLab Scala Skills"
+  },
+  "plugins": [
+    {
+      "name": "direct-style-scala",
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Development"
+    }
+  ]
+}

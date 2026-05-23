@@ -1,0 +1,40 @@
+{
+  "name": "direct-style-scala",
+  "version": "1.0.4",
+  "description": "Scala coding style, tooling, and functional programming guidance, with dedicated sections on direct-style Scala, Ox structured concurrency, and synchronous Tapir. Auto-load for any task involving Scala code, especially when using direct-style or \"plain\" Scala.",
+  "author": {
+    "name": "VirtusLab",
+    "url": "https://virtuslab.com"
+  },
+  "homepage": "https://github.com/VirtusLab/scala-skill/tree/master/direct-style-scala",
+  "repository": "https://github.com/VirtusLab/scala-skill",
+  "license": "Apache-2.0",
+  "keywords": [
+    "scala",
+    "tapir",
+    "ox",
+    "sttp",
+    "direct-style",
+    "virtual-threads",
+    "functional programming",
+    "concurrency"
+  ],
+  "skills": "./direct-style-scala",
+  "interface": {
+    "displayName": "Direct-style Scala",
+    "shortDescription": "Scala coding style, tooling, and functional programming guidance.",
+    "longDescription": "Scala coding style, tooling, and functional programming guidance, with dedicated sections on direct-style Scala, Ox structured concurrency, and synchronous Tapir. Auto-load for any task involving Scala code, especially when using direct-style or \"plain\" Scala.",
+    "developerName": "VirtusLab",
+    "category": "Development",
+    "capabilities": [
+      "Skills"
+    ],
+    "websiteURL": "https://github.com/VirtusLab/scala-skill",
+    "defaultPrompt": [
+      "Use direct-style Scala guidance",
+      "Review this Scala service",
+      "Plan a Tapir endpoint implementation"
+    ],
+    "brandColor": "#DE3423"
+  }
+}
