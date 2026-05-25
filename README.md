@@ -6,10 +6,11 @@ Written by AI, for AIs and humans alike.
 
 ## Available skills
 
-- **[direct-style-scala](direct-style-scala/)** — Scala coding style, tooling,
-  and functional programming guidance, with dedicated sections on direct-style
-  Scala, [Ox](https://ox.softwaremill.com) structured concurrency, and
-  synchronous [Tapir](https://tapir.softwaremill.com).
+- **[direct-style-scala](direct-style-scala/skills/direct-style-scala/)** —
+  Scala coding style, tooling, and functional programming guidance, with
+  dedicated sections on direct-style Scala, [Ox](https://ox.softwaremill.com)
+  structured concurrency, and synchronous
+  [Tapir](https://tapir.softwaremill.com).
 
 ## Installation
 
@@ -21,7 +22,7 @@ Written by AI, for AIs and humans alike.
 /plugin marketplace add virtuslab/scala-skill
 ```
 
-#### Install the skill
+#### Install the plugin-provided skill
 
 ```
 /plugin install direct-style-scala@virtuslab-scala-skill
@@ -32,7 +33,7 @@ Written by AI, for AIs and humans alike.
 ```bash
 git clone https://github.com/virtuslab/scala-skill.git /tmp/scala-skill
 mkdir -p ~/.claude/skills
-cp -r /tmp/scala-skill/direct-style-scala ~/.claude/skills/
+cp -r /tmp/scala-skill/direct-style-scala/skills/direct-style-scala ~/.claude/skills/
 ```
 
 ### Codex

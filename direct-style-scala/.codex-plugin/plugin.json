@@ -1,12 +1,12 @@
 {
   "name": "direct-style-scala",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Scala coding style, tooling, and functional programming guidance, with dedicated sections on direct-style Scala, Ox structured concurrency, and synchronous Tapir. Auto-load for any task involving Scala code, especially when using direct-style or \"plain\" Scala.",
   "author": {
     "name": "VirtusLab",
     "url": "https://virtuslab.com"
   },
-  "homepage": "https://github.com/VirtusLab/scala-skill/tree/master/direct-style-scala",
+  "homepage": "https://github.com/VirtusLab/scala-skill/tree/master/direct-style-scala/skills/direct-style-scala",
   "repository": "https://github.com/VirtusLab/scala-skill",
   "license": "Apache-2.0",
   "keywords": [
@@ -19,7 +19,7 @@
     "functional programming",
     "concurrency"
   ],
-  "skills": "./codex-skill",
+  "skills": "./skills",
   "interface": {
     "displayName": "Direct-style Scala",
     "shortDescription": "Scala coding style, tooling, and functional programming guidance.",

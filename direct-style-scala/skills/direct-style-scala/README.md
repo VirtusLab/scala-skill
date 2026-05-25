@@ -1,8 +1,9 @@
 # direct-style-scala
 
-A skill for writing direct-style Scala 3 applications with virtual threads
-(Java 21+), using [Tapir](https://tapir.softwaremill.com),
-[Ox](https://ox.softwaremill.com), and [sttp](https://sttp.softwaremill.com).
+A skill for Scala coding style, tooling, and functional programming guidance,
+with dedicated sections on direct-style Scala, [Ox](https://ox.softwaremill.com)
+structured concurrency, and synchronous
+[Tapir](https://tapir.softwaremill.com).
 
 ## Prerequisites
 
