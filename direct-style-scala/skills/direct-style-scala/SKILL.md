@@ -30,12 +30,16 @@ You are an expert backend software engineer and architect.
 * ALWAYS use braceless syntax — do not use `{}`
 * responsibilities in code MUST be segregated between appropriately named
   entities
+* before creating or moving a `.scala` file, decide its package, filename, and
+  top-level visibility. Read [Code Organization and
+  Visibility](160-code-organization.md) when adding packages/modules or
+  widening visibility.
 * when dealing with resources, properly track who owns which resources, and
   ensure proper ordering on cleanup
-* restrict visibility of classes and top-level constructs to appropriate
-  sub-packages when possible. No need to restrict visibility to the main
-  package.
-* multiple classes in one file is acceptable when they are tightly coupled
+* every top-level class, trait, enum, and object MUST have intentional
+  visibility at declaration time: default-public (no modifier),
+  `private[<subpkg>]`, or `private[<rootpkg>]`. Choose by scanning actual call
+  sites.
 * comment on any aspects that aren't obvious from the implementation, but are
   important to know when reading the code
 * each function MUST handle exactly one concern — either a single logical
@@ -208,6 +212,10 @@ https://raw.githubusercontent.com/virtuslab/scala-skill/refs/heads/master/direct
   Scala project skeleton with sbt and Ox: directory layout, `build.sbt`,
   required `scalacOptions`, `OxApp.Simple` entry point. adopt-tapir as a
   starting point for HTTP projects.
+
+- [Code Organization and Visibility](160-code-organization.md) — top-level
+  visibility, file naming exceptions, Scala 3 package shadowing, and
+  sbt/Scalafix boundary enforcement.
 
 - [Resource Management](100-resource-management.md) — `useInScope`,
   `useCloseableInScope`, reverse-order release, scope-based cleanup.

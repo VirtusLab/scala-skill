@@ -138,6 +138,8 @@ instead — see [Background Processes](110-background-processes.md).
 
 Add features by following the relevant chapter:
 
+- Scala visibility, package, file, and module rules — [Code Organization and
+  Visibility](160-code-organization.md).
 - Resource lifecycle — [Resource Management](100-resource-management.md).
 - `application.conf` + `Config.read` — [Type-Safe Configuration](120-type-safe-configuration.md).
 - Wiring multiple services — [Compile-Time Dependency Injection](130-compile-time-dependency-injection.md).
