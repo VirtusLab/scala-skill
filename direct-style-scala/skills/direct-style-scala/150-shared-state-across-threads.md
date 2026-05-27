@@ -2,10 +2,30 @@
 
 ## Dependencies
 
-- `"com.softwaremill.ox" %% "core"` — `Flow`, `supervised`, `fork`, channels,
-  actors
+- `"com.softwaremill.ox" %% "core"` — `Flow`, `par`, `supervised`, `fork`,
+  `forkDiscard`, `forkUserDiscard`, channels, actors
 
 ---
+
+## Use Ox primitives
+
+Use Ox for threading, mailboxes, fan-out, and async results. Prefer a local
+`supervised` scope around one request, message, or job. Use a parent or
+application scope only when the spawned work must live as long as that scope.
+Do not use raw `Thread.ofVirtual`, `LinkedBlockingQueue`, `synchronized`/`Lock`,
+or `AtomicReference` as a lifecycle flag in application code. Use
+`java.util.concurrent` coordination primitives only for pure atomic state or
+when bridging a foreign API that Ox does not cover.
+
+| Need | Use |
+|------|-----|
+| Fixed-arity parallel fan-out inside one operation | `par(...)` |
+| One-shot async result needing explicit fork control | local `supervised` scope with `fork` and `.join()` before returning |
+| App-owned worker that must drain on shutdown | `forkUserDiscard` plus channel shutdown |
+| Daemon work that may be cancelled with the scope | `forkDiscard` |
+| Mailbox or producer-consumer queue | `ox.channels.Channel[T]` |
+| Collection fan-out | `Flow.mapPar` or `Flow.mapParUnordered` |
+| Serialized access to mutable state | `Actor` |
 
 ## Flows
 
@@ -34,6 +54,8 @@ Flow.fromIterable(urls)
   .mapPar(8)(url => httpClient.get(url))
   .runForeach(response => process(response))
 ```
+
+Use `mapParUnordered` when result ordering is irrelevant.
 
 Without Flows, this would require manually creating a `supervised` scope,
 forking workers, coordinating via channels, and handling errors — all of which
@@ -100,15 +122,20 @@ import ox.channels.*
 supervised:
   val ch = Channel.bufferedDefault[String]
 
-  fork:
+  forkDiscard:
     ch.send("hello")
     ch.send("world")
     ch.done()
 
-  var msg = ch.receiveSafe()
-  while msg != ChannelClosed.Done do
-    println(msg)
-    msg = ch.receiveSafe()
+  repeatWhile:
+    ch.receiveOrClosed() match
+      case msg: String =>
+        println(msg)
+        true
+      case ChannelClosed.Done =>
+        false
+      case ChannelClosed.Error(t) =>
+        throw t
 ```
 
 `send` blocks when the buffer is full; `receive` blocks when the buffer is
@@ -116,6 +143,65 @@ empty. Since Ox runs on virtual threads, blocking is cheap.
 
 Channels and Flows interoperate: `Flow.fromSource(channel)` wraps a channel in
 a Flow, and `flow.runToChannel()` materialises a Flow into a channel.
+
+### Channel-backed workers
+
+Use this pattern for app-owned workers whose lifetime is intentionally tied to
+the parent scope. For request- or job-level concurrency, create a local
+`supervised` scope instead.
+
+Give the worker a channel mailbox and start it from a factory. The factory
+takes `(using Ox)`, spawns the fork, and returns a plain value; the constructor
+does not carry the scope capability.
+
+```scala
+package com.example.myapp.workers
+
+import java.io.Closeable
+import ox.*
+import ox.channels.*
+import scala.util.control.NonFatal
+
+final class Worker private[workers] (mailbox: Channel[Task]) extends Closeable:
+  def submit(task: Task): Unit =
+    mailbox.send(task)
+
+  override def close(): Unit =
+    mailbox.doneOrClosed().discard
+
+object Worker:
+  def start(...)(using Ox): Worker =
+    val mailbox = Channel.bufferedDefault[Task]
+    forkUserDiscard:
+      repeatWhile:
+        mailbox.receiveOrClosed() match
+          case task: Task =>
+            try
+              process(task)
+              true
+            catch
+              case NonFatal(t) =>
+                logger.error("Worker task failed", t)
+                true
+          case ChannelClosed.Done =>
+            false
+          case ChannelClosed.Error(t) =>
+            throw t
+    new Worker(mailbox)
+```
+
+`close()` signals shutdown through the channel. `done()` lets queued tasks drain
+in FIFO order; `doneOrClosed()` makes the user-facing close operation
+idempotent without an `AtomicReference` or volatile flag.
+
+> **Important:** A `forkUserDiscard` worker keeps the parent scope open until it
+> exits. Wire `close()` into the owner's resource/application lifecycle; don't
+> start this pattern from a scope that has no matching shutdown path.
+
+> **Warning:** Never catch `case _: Throwable` in a worker. Let
+> `InterruptedException` escape so the fork exits on interruption. Catch
+> `NonFatal` around individual tasks only when one bad task should not kill the
+> worker; fatal throwables must propagate.
 
 ### Signaling between threads
 
@@ -125,22 +211,20 @@ Use a channel instead of a shared flag when one thread needs to signal another:
 supervised:
   val saveTrigger = Channel.rendezvous[Unit]
 
-  fork:
+  forkDiscard:
     forever:
       sleep(saveInterval)
       saveTrigger.send(())
-  .discard
 
-  var state = init()
-  inputSource.foreach: item =>
-    state = process(state, item)
-
-  fork:
-    repeatWhile:
-      saveTrigger.receiveSafe() match
-        case ChannelClosed.Done => false
-        case _                 => save(state); true
-  .discard
+  repeatWhile:
+    saveTrigger.receiveOrClosed() match
+      case () =>
+        saveSnapshot()
+        true
+      case ChannelClosed.Done =>
+        false
+      case ChannelClosed.Error(t) =>
+        throw t
 ```
 
 ## Actors
@@ -150,6 +234,7 @@ built-in `Actor`. It guarantees that method invocations happen one at a time,
 even when called from multiple threads:
 
 ```scala
+import ox.*
 import ox.channels.Actor
 
 class StateHolder:
@@ -164,17 +249,20 @@ class StateHolder:
 supervised:
   val ref = Actor.create(new StateHolder)
 
-  fork(ref.ask(_.increment(5))).discard
-  fork(ref.ask(_.increment(3))).discard
+  val sent1 = fork(ref.tell(_.increment(5)))
+  val sent2 = fork(ref.tell(_.increment(3)))
+  sent1.join()
+  sent2.join()
 
   val total = ref.ask(_.current)
 ```
 
 `ask` blocks until the invocation completes and returns the result. `tell`
 schedules the invocation without waiting — use it for fire-and-forget
-operations.
+operations. The example forks concurrent callers, then joins those sends before
+asking for the final state.
 
-## AtomicReference as a last resort
+## AtomicReference only for pure shared state
 
 For simple cases where channels, actors, or Flows are overkill (e.g. a shared
 counter read by many threads), `AtomicReference` with atomic read-modify-write
@@ -196,21 +284,31 @@ stateRef.updateAndGet(state => process(state, item)).discard
 > loop). The function passed to it MUST be side-effect-free — no I/O, no
 > logging, no channel operations.
 
+> **Warning:** Never use `AtomicReference` as a lifecycle, cancellation, or
+> shutdown flag. Model lifecycle with Ox scope structure or channel completion.
+
 ## Scope propagation
 
-Only propagate `(using Ox)` when a method genuinely needs to start forks or
-register resources in the caller's scope. Otherwise, create a local
-`supervised` block:
+Prefer local, focused scopes. If a method only needs concurrency to compute its
+own result, create a `supervised` scope inside the method, start forks there,
+and join before returning. Accept `(using Ox)` only when the fork or resource
+must attach to the caller's lifetime.
+
+Do not put `(using Ox)` on a constructor or on a class just because
+construction starts a worker; use a factory like `Worker.start(...)(using Ox)`
+and return a plain value.
 
 ```scala
-// Avoid — leaks concurrency scope to the caller:
-def processAll(items: List[Item])(using Ox): Unit =
-  items.foreach(item => fork(handle(item)).discard)
+// Avoid — leaks the caller's scope and exposes accidental concurrency:
+def loadBoth(userId: UserId, accountId: AccountId)(using Ox): (Fork[User], Fork[Account]) =
+  (fork(loadUser(userId)), fork(loadAccount(accountId)))
 
-// Prefer — concurrency is contained within the method:
-def processAll(items: List[Item]): Unit =
+// Prefer — concurrency is contained and joined before returning:
+def loadBoth(userId: UserId, accountId: AccountId): (User, Account) =
   supervised:
-    items.foreach(item => fork(handle(item)).discard)
+    val user = fork(loadUser(userId))
+    val account = fork(loadAccount(accountId))
+    (user.join(), account.join())
 ```
 
 > **Important:** `(using Ox)` in a method signature means "I will start
@@ -219,9 +317,12 @@ def processAll(items: List[Item]): Unit =
 
 ## Choosing the right pattern
 
+Prefer the highest-level primitive that fits the shape of the problem:
+
 | Pattern | Use when |
 |---------|----------|
-| **Flow** | Data processing pipelines, concurrent mapping, merging streams, stateful transformations. The default choice. |
-| **Channel** | Imperative send/receive, custom protocols, callback integration. Lower-level than Flows. |
-| **Actor** | Multiple threads need serialized access to a mutable object. |
-| **AtomicReference** | Simple shared value with pure update functions. No I/O in updates. |
+| **Flow** | Processing collections or streams with mapping, merging, stateful transforms, backpressure, or bounded parallelism. |
+| **par** | Running a small fixed number of independent computations and returning their results together. |
+| **Channel** | Modeling an explicit protocol, mailbox, producer-consumer queue, or callback boundary. |
+| **Actor** | Multiple concurrent callers must access one mutable object serially. |
+| **AtomicReference** | A single shared value needs pure atomic updates; never use it for lifecycle flags. |

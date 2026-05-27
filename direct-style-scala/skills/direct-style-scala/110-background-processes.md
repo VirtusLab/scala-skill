@@ -2,8 +2,8 @@
 
 ## Dependencies
 
-- `"com.softwaremill.ox" %% "core"` — `supervised`, `fork`, `forkUser`,
-  `forever`, `sleep`, `never`
+- `"com.softwaremill.ox" %% "core"` — `supervised`, `forkDiscard`,
+  `forkUserDiscard`, `forever`, `sleep`, `never`
 
 ---
 
@@ -26,11 +26,12 @@ scope ends, interrupting all forks.
 
 ## Daemon forks with forever
 
-Background processes use `fork` + `forever` + `sleep` to create periodic loops:
+Background processes use `forkDiscard` + `forever` + `sleep` to create
+periodic loops:
 
 ```scala
-private def foreverPeriodically(errorMsg: String)(t: => Unit)(using Ox): Fork[Nothing] =
-  fork:
+private def foreverPeriodically(errorMsg: String)(t: => Unit)(using Ox): Unit =
+  forkDiscard:
     forever:
       sleep(config.emailSendInterval)
       try t
@@ -40,8 +41,12 @@ private def foreverPeriodically(errorMsg: String)(t: => Unit)(using Ox): Fork[No
 The interval (`config.emailSendInterval`) comes from the service's own
 configuration — each background process can define its own schedule.
 
-`fork` creates a daemon fork — it doesn't prevent the scope from ending (only
-user forks do). `forever` repeats the block indefinitely.
+`forkDiscard` creates a daemon fork — it doesn't prevent the scope from ending
+(only user forks do). `forever` repeats the block indefinitely.
+
+Use `forkDiscard` for daemon background work that should be cancelled when the
+scope ends. Use `forkUserDiscard` for workers that should drain and complete
+before the scope exits.
 
 > **Warning:** The `try`/`catch` is essential: without it, a single exception
 > would crash the fork and terminate the application (supervised scope).
@@ -53,15 +58,13 @@ Multiple processes are started by forking multiple times within the same scope:
 
 ```scala
 def startProcesses()(using Ox): Unit =
-  foreverPeriodically("Exception when sending emails") {
+  foreverPeriodically("Exception when sending emails"):
     sendBatch()
-  }.discard
 
-  foreverPeriodically("Exception when counting emails") {
+  foreverPeriodically("Exception when counting emails"):
     val count = db.transact(emailModel.count())
     metrics.emailQueueGauge.set(count.toDouble)
-  }.discard
 ```
 
-Both use `fork` (daemon). If a fork fails after the `try`/`catch`, the
+Both use `forkDiscard` (daemon). If a fork fails after the `try`/`catch`, the
 supervised scope terminates the application rather than silently continuing.

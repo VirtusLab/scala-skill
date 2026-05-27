@@ -74,9 +74,15 @@ def findUser(id: Id[User])(using DbTx): Either[Fail, User] =
   endpoint logic — NEVER use `.serverLogic` / `.serverSecurityLogic`. The
   `.handle` family is the direct-style API. The `.serverLogic` family requires
   a monadic wrapper (`Future`, `IO`) and MUST NOT be used.
-* only propagate `(using Ox)` when the method genuinely needs to start forks or
-  register resources in the caller's scope. Otherwise, create a local
-  `supervised` block.
+* ALWAYS use Ox for threading, channels, and async coordination. Avoid raw
+  `Thread.ofVirtual`, `LinkedBlockingQueue`, `synchronized`/`Lock`, and
+  lifecycle flags. Use `java.util.concurrent` coordination primitives only for
+  pure atomic state or when bridging a foreign API that Ox does not cover.
+* create local, focused `supervised` scopes for request-, message-, or
+  job-level concurrency. Accept a parent `(using Ox)` only when a fork or
+  resource must be tied to that parent scope's lifetime.
+* keep constructors plain; use factories that take `(using Ox)` and return
+  values that do not carry the capability.
 
 # Functional programming
 
@@ -221,8 +227,8 @@ https://raw.githubusercontent.com/virtuslab/scala-skill/refs/heads/master/direct
   `useCloseableInScope`, reverse-order release, scope-based cleanup.
 
 - [Background Processes](110-background-processes.md) — `OxApp` entry point,
-  `fork`/`forkUser` for daemon vs. user threads, `forever`/`sleep` for periodic
-  loops, orderly shutdown.
+  `forkDiscard`/`forkUserDiscard` for daemon vs. user threads,
+  `forever`/`sleep` for periodic loops, orderly shutdown.
 
 - [Type-Safe Configuration](120-type-safe-configuration.md) — PureConfig with
   `derives ConfigReader`, environment variable overrides, `Sensitive` wrapper,
@@ -234,8 +240,8 @@ https://raw.githubusercontent.com/virtuslab/scala-skill/refs/heads/master/direct
 
 - [Concurrency and Inter-Thread Communication](150-shared-state-across-threads.md)
   — Flows for declarative concurrent pipelines (`mapPar`, `merge`,
-  `mapStateful`), channels for imperative send/receive, actors for serialized
-  mutable state.
+  `mapStateful`), Ox primitive selection, channels for worker mailboxes and
+  shutdown, actors for serialized mutable state.
 
 ## Error Handling
 

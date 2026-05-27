@@ -34,6 +34,8 @@ hikariConfig.setThreadFactory(Thread.ofVirtual().factory())
 > **Required:** `setThreadFactory(Thread.ofVirtual().factory())` is needed so
 > HikariCP uses virtual threads internally. Without it, the pool creates
 > platform threads, which can cause thread starvation under load.
+> This is a foreign-API bridge; do not use `Thread.ofVirtual` for application
+> concurrency. Use local Ox scopes, forks, flows, channels, and actors instead.
 
 ## Schema migrations
 
