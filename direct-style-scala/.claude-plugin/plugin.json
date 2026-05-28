@@ -1,6 +1,6 @@
 {
   "name": "direct-style-scala",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Scala coding style, tooling, and functional programming guidance, with dedicated sections on direct-style Scala, Ox structured concurrency, and synchronous Tapir. Auto-load for any task involving Scala code, especially when using direct-style or \"plain\" Scala.",
   "author": {
     "name": "VirtusLab"

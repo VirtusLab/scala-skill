@@ -40,17 +40,22 @@ final class GitService(client: GitClient):
 
 ## Files
 
-- A type referenced from sibling files MUST live in a file named after that
-  type.
+The discriminator for "own file vs. shared file" is **where a type is
+constructed**, not where it is referenced. A service may share its file with
+return types and exceptions it throws — if the service is the sole constructor
+of those types. A type constructed in multiple places (several services, codec 
+deserialization, etc.) gets its own file named after itself.
+
 - Bundle sealed hierarchies in one file.
-- A trait may share a file with its single canonical  implementation (e.g. 
+- A trait may share a file with its single canonical implementation (e.g.
   `Default*`).
 - Tightly coupled pairs may share a file, e.g. an enum and its sole consumer
   callback type.
 - Otherwise, use one top-level type per file.
 
-Do not create `GitTypes.scala`, `Models.scala`, or `Helpers.scala` for top-level
-types used by sibling files.
+Do not create `GitTypes.scala`, `Models.scala`, or `Helpers.scala`. The "Types"
+suffix is itself the smell — when the only thing the contents share is "they're
+types", split per the rules above.
 
 ## Packages
 
