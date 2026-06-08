@@ -72,8 +72,8 @@ mkdir -p ~/.agents/skills
 cp -r /tmp/scala-skill/direct-style-scala/skills/direct-style-scala ~/.agents/skills/
 ```
 
-Restart the editor; the agent loads the skill automatically when a task looks
-relevant. You can also trigger it explicitly: `/direct-style-scala` in Cursor's
+Restart the editor (or your `cursor-agent` CLI session); the agent loads the
+skill automatically when a task looks relevant. You can also trigger it explicitly: `/direct-style-scala` in Cursor's
 Agent chat, or `/skill:direct-style-scala` in Pi.
 
 Each tool also has its own native skills directory if you prefer to scope the
