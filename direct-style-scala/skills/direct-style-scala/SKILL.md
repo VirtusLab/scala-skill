@@ -48,6 +48,10 @@ You are an expert backend software engineer and architect.
   its own well-named function so the orchestrator reads as a sequence of
   intentions. Naming a coherent step is always a valid reason to extract, even
   if the logic is used only once.
+* use Ox's `.pipe` and `.tap` (`import ox.*`) to drop single-use `val`s that
+  only feed the next line. `.pipe(f)` returns `f(value)`; `.tap(f)` runs a side
+  effect and returns the value unchanged. Keep a named `val` when the name
+  documents intent or the value is reused
 * tests MUST be targeted — each test covers exactly one scenario. No
   overlapping or redundant tests.
 * every public function, val, and given MUST have an explicit return type — this
