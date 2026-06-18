@@ -8,6 +8,24 @@
 
 ---
 
+## Wiring endpoints: the `Identity` effect
+
+Synchronous Tapir runs handlers in the *identity effect* — `Identity[A] = A`,
+imported from `sttp.shared`. Wiring an endpoint to its logic with `.handle` (see
+[Error Handling](200-error-handling.md)) yields a `ServerEndpoint[Any, Identity]`:
+
+```scala
+import sttp.shared.Identity
+import sttp.tapir.server.ServerEndpoint
+
+val allEndpoints: List[ServerEndpoint[Any, Identity]] =
+  List(registerUserServerEndpoint /* , ... */)
+```
+
+`Identity` is also the effect type parameterising the interceptors and
+static-file helpers below (`CORSInterceptor.default[Identity]`) and the test stub
+backend (see [Testing HTTP Endpoints](500-testing-http-endpoints.md)).
+
 ## Security headers
 
 Anti-clickjacking headers added to `baseEndpoint`, inherited by all endpoints:
