@@ -15,8 +15,11 @@ You are an expert backend software engineer and architect.
   been observed pinned to year-old versions). Use these instead:
   * latest version of a KNOWN artifact — read the canonical resolver source,
     `https://repo1.maven.org/maven2/<group-with-slashes>/<artifact>/maven-metadata.xml`,
-    and take `<release>` (or the last `<version>`). Remember the Scala suffix,
-    e.g. `com/softwaremill/ox/core_3`. This is never stale.
+    and take `<release>` (or the last `<version>`). `<release>` may itself be a
+    prerelease (e.g. scalatest's was `3.3.0-SNAP4`, Scala 3's `3.9.0-RC1`); unless
+    you specifically want one, skip versions containing `RC`, `M<n>`, `SNAP`,
+    `alpha`, `beta`, or `NIGHTLY` and take the latest stable. Remember the Scala
+    suffix, e.g. `com/softwaremill/ox/core_3`. This is never stale.
   * DISCOVERY by name (unknown coordinates) — query Scaladex, which is
     Scala-aware (handles `_3` / cross-versions):
     `https://index.scala-lang.org/api/autocomplete?q=<name>` to find the
