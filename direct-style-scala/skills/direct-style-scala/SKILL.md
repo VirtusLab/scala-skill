@@ -281,6 +281,15 @@ https://raw.githubusercontent.com/virtuslab/scala-skill/refs/heads/master/direct
   SOAP envelope wrapping/unwrapping, Tapir XML codecs for scalaxb types,
   `SOAPAction`-based endpoint routing, SOAP fault error handlers.
 
+- [JSON Request and Response Bodies](350-json-bodies.md) — jsoniter codec
+  derivation for DTOs, why list bodies need their own codec, encoding
+  parameterless enums as plain strings via `withDiscriminatorFieldName(None)`,
+  and using opaque-type identifiers directly in DTOs.
+
+- [Endpoint Input Codecs](360-endpoint-input-codecs.md) — `PlainCodec`s for
+  path/query/header inputs: mapping a built-in codec onto an opaque-type id, and
+  `Codec.derivedEnumeration` for enum-valued inputs.
+
 ## Data & Integration
 
 - [SQL Persistence](400-sql-persistence.md) — Magnum with PostgreSQL: `@Table`
