@@ -104,8 +104,11 @@ def findUser(id: Id[User])(using DbTx): Either[Fail, User] =
 * use pure functions, immutable data, higher-order functions, ADTs. NEVER use
   shared mutable state.
 * `var` declarations MUST be inside methods (e.g. processing loops), **never**
-  as class fields. Class-level `var`s break reasoning and testability. Use only
-  immutable collections (`Map`, `Set`, `List`) — never `mutable.Map`,
+  as class fields. Class-level `var`s break reasoning and testability. The sole
+  exception is mutable state encapsulated by an Ox `Actor`, which serialises every
+  invocation onto a single thread — the actor is what makes the field safe to hold
+  (see [Concurrency and Inter-Thread Communication](150-shared-state-across-threads.md)).
+  Use only immutable collections (`Map`, `Set`, `List`) — never `mutable.Map`,
   `mutable.Set`, `mutable.Buffer`.
 * model state as an immutable case class. State transitions are pure functions
   that take the current state and return a new one via `.copy()`. Confine the
