@@ -28,8 +28,6 @@ You are an expert backend software engineer and architect.
 # Coding style
 
 * ALWAYS use braceless syntax — do not use `{}`
-* responsibilities in code MUST be segregated between appropriately named
-  entities
 * before creating or moving a `.scala` file, decide its package, filename, and
   top-level visibility. Read [Code Organization and
   Visibility](160-code-organization.md) when adding packages/modules or
@@ -42,30 +40,16 @@ You are an expert backend software engineer and architect.
   sites.
 * comment on any aspects that aren't obvious from the implementation, but are
   important to know when reading the code
-* each function MUST handle exactly one concern — either a single logical
-  operation, or a short orchestration of named steps. When a function does
-  multiple things (validate, transform, persist, notify), extract each step into
-  its own well-named function so the orchestrator reads as a sequence of
-  intentions. Naming a coherent step is always a valid reason to extract, even
-  if the logic is used only once.
+* each function MUST handle exactly one concern — extract each step (validate,
+  transform, persist, …) into a well-named function so an orchestrator reads as a
+  sequence of intentions; naming a single-use step is reason enough to extract.
 * use Ox's `.pipe` and `.tap` (`import ox.*`) to drop single-use `val`s that
   only feed the next line. `.pipe(f)` returns `f(value)`; `.tap(f)` runs a side
   effect and returns the value unchanged. Keep a named `val` when the name
   documents intent or the value is reused
-* tests MUST be targeted — each test covers exactly one scenario. No
-  overlapping or redundant tests.
+* tests MUST be targeted — each covers exactly one scenario, with no overlap.
 * every public function, val, and given MUST have an explicit return type — this
-  prevents accidental signature drift during refactors:
-
-```scala
-// Wrong — inferred return type can silently change:
-def findUser(id: Id[User])(using DbTx) =
-  userModel.findById(id).toRight(Fail.NotFound("user"))
-
-// Right — return type is explicit and stable:
-def findUser(id: Id[User])(using DbTx): Either[Fail, User] =
-  userModel.findById(id).toRight(Fail.NotFound("user"))
-```
+  prevents accidental signature drift during refactors.
 
 # Performance
 
@@ -98,48 +82,14 @@ def findUser(id: Id[User])(using DbTx): Either[Fail, User] =
   `mutable.Set`, `mutable.Buffer`.
 * model state as an immutable case class. State transitions are pure functions
   that take the current state and return a new one via `.copy()`. Confine the
-  `var` that threads state to the smallest possible scope:
-
-```scala
-case class ProcessingState(
-    processed: Map[String, Long] = Map.empty,
-    pending: Set[String] = Set.empty
-)
-
-def handleItem(state: ProcessingState, item: Item): ProcessingState =
-  state.copy(processed = state.processed.updated(item.key, item.offset))
-
-def run(items: Iterator[Item]): ProcessingState =
-  var state = ProcessingState()
-  for item <- items do
-    state = handleItem(state, item)
-  state
-```
-
+  `var` that threads state to the smallest possible scope.
 * push side effects behind traits so that state transitions are testable without
   real infrastructure. Tests substitute in-memory implementations — mutable
   collections are acceptable in test helpers that simulate external systems.
 * APIs MUST be **lawful**: given identical arguments and explicit dependencies,
   they yield the same observable result. Do not hide dependencies like `Clock`,
   `Random`, or `UUID` inside methods — pass them explicitly or capture them in
-  the class constructor:
-
-```scala
-// Wrong — hidden non-determinism:
-class OrderService:
-  def place(order: Order): Confirmation =
-    val id = UUID.randomUUID()
-    val now = Instant.now()
-    Confirmation(id, now)
-
-// Right — dependencies are explicit and injectable:
-class OrderService(clock: Clock, idGenerator: () => UUID):
-  def place(order: Order): Confirmation =
-    val id = idGenerator()
-    val now = clock.instant()
-    Confirmation(id, now)
-```
-
+  the class constructor.
 * wrap `String`, `Int`, `Long`, and `Boolean` domain values in opaque types or
   enums — NEVER use raw primitives for domain concepts. This applies to
   identifiers (`OrderId`, `ProductCode`), quantities (`Quantity`, `Amount`), and
@@ -147,49 +97,16 @@ class OrderService(clock: Clock, idGenerator: () => UUID):
   scalaxb) produces raw `String` fields, introduce opaque types at the boundary
   where generated types are converted to domain types.
 * eliminate boolean blindness — replace `Boolean` parameters and return values
-  with two-case enums so intent is explicit and exhaustiveness is checked:
-
-```scala
-// Wrong — caller must remember what `true` means:
-def recordFlush(success: Boolean, durationMs: Double): Unit
-
-// Right — intent is unambiguous:
-enum FlushOutcome:
-  case Success, Failure
-def recordFlush(outcome: FlushOutcome, duration: Duration): Unit
-```
+  with two-case enums so intent is explicit and exhaustiveness is checked.
 * NEVER throw exceptions for recoverable failures. Instead, return an `Either[E, T]`.
   Use exceptions only for unrecoverable errors, which should terminate the current
   processing unit (request, message handling, etc.)
 * if a value can be absent, use `Option[T]` — NEVER use `null` or sentinel
   values. `Option` is for presence/absence only, not for errors.
 * model different states of an entity as separate types — NEVER use `Option`
-  fields to represent state transitions:
-
-```scala
-// Wrong — callers must remember to check confirmedAt:
-case class Order(id: Id[Order], items: List[Item], confirmedAt: Option[Instant])
-
-// Right — the type tells you what state the order is in:
-case class PendingOrder(id: Id[Order], items: List[Item])
-case class ConfirmedOrder(id: Id[Order], items: List[Item], confirmedAt: Instant)
-```
-
+  fields to represent state transitions.
 * design domain models so that invalid data CANNOT be constructed. Use enums,
-  opaque types, or smart constructors to encode invariants:
-
-```scala
-// Wrong — any string is accepted:
-def setPort(port: Int): Unit
-
-// Right — invalid values are rejected at construction:
-opaque type Port = Int
-object Port:
-  def apply(value: Int): Either[String, Port] =
-    if value >= 1 && value <= 65535 then Right(value)
-    else Left(s"Port out of range: $value")
-```
-
+  opaque types, or smart constructors to encode invariants.
 * define sealed-trait or enum error hierarchies — NEVER use stringly-typed
   errors.
 * NEVER use bare `try`/`catch` for recoverable failures. Reserve `try`/`catch` for
