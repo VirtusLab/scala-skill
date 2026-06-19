@@ -19,12 +19,31 @@ case class Error_OUT(error: String) derives ConfiguredJsonValueCodec, Schema
 
 ## Mapping Fail to HTTP responses
 
-The `Fail` ADT (see [Error Handling](200-error-handling.md)) needs a
-bidirectional mapping to HTTP status codes and error messages. The forward
-direction is used by the server; the reverse is used by the client interpreter
-in tests:
+The `Fail` ADT (see [Error Handling](200-error-handling.md)) needs a bidirectional
+mapping to HTTP status codes and error messages: `failToResponseData` (forward) is
+used by the server, `responseDataToFail` (reverse) by the client interpreter in
+tests, and `failOutput` combines them into the endpoint error output.
 
 ```scala
+import sttp.model.StatusCode
+import sttp.tapir.*
+import sttp.tapir.json.jsoniter.jsonBody
+
+private val failToResponseData: Fail => (StatusCode, String) =
+  case Fail.NotFound(what)      => (StatusCode.NotFound, what)
+  case Fail.Conflict(msg)       => (StatusCode.Conflict, msg)
+  case Fail.IncorrectInput(msg) => (StatusCode.BadRequest, msg)
+  case Fail.Forbidden           => (StatusCode.Forbidden, "Forbidden")
+  case Fail.Unauthorized(msg)   => (StatusCode.Unauthorized, msg)
+  case _                        => (StatusCode.InternalServerError, "Internal server error")
+
+private val responseDataToFail: (StatusCode, String) => Fail =
+  case (StatusCode.NotFound, what)    => Fail.NotFound(what)
+  case (StatusCode.Conflict, msg)     => Fail.Conflict(msg)
+  case (StatusCode.Forbidden, _)      => Fail.Forbidden
+  case (StatusCode.Unauthorized, msg) => Fail.Unauthorized(msg)
+  case (_, msg)                       => Fail.IncorrectInput(msg)
+
 val jsonErrorOutOutput: EndpointOutput[Error_OUT] = jsonBody[Error_OUT]
 
 private val failOutput: EndpointOutput[Fail] =
@@ -33,19 +52,10 @@ private val failOutput: EndpointOutput[Fail] =
     .map(responseDataToFail.tupled)(failToResponseData)
 ```
 
-The `failToResponseData` function maps each `Fail` variant to a status code and
-message:
-
-```scala
-private val failToResponseData: Fail => (StatusCode, String) = {
-  case Fail.NotFound(what)      => (StatusCode.NotFound, what)
-  case Fail.Conflict(msg)       => (StatusCode.Conflict, msg)
-  case Fail.IncorrectInput(msg) => (StatusCode.BadRequest, msg)
-  case Fail.Forbidden           => (StatusCode.Forbidden, "Forbidden")
-  case Fail.Unauthorized(msg)   => (StatusCode.Unauthorized, msg)
-  case _                        => (StatusCode.InternalServerError, "Internal server error")
-}
-```
+> **Important:** these are `val`s, evaluated top-to-bottom as the enclosing object
+> initialises. The mapping functions must be declared before `failOutput`, and
+> `failOutput` before `baseEndpoint` (below); otherwise the dependent val reads an
+> uninitialised `null` and the server fails at startup with a `NullPointerException`.
 
 ## Applying to all endpoints
 
@@ -64,9 +74,12 @@ logic — decode failures, unmatched routes, and unhandled exceptions. By defaul
 these produce plain-text responses. To make them return JSON too:
 
 ```scala
+import sttp.tapir.server.model.ValuedEndpointOutput
+import sttp.tapir.server.netty.sync.NettySyncServerOptions
+
 val serverOptions: NettySyncServerOptions = NettySyncServerOptions.customiseInterceptors
   .defaultHandlers(
-    msg => ValuedEndpointOutput(Http.jsonErrorOutOutput, Error_OUT(msg)),
+    msg => ValuedEndpointOutput(jsonErrorOutOutput, Error_OUT(msg)),
     notFoundWhenRejected = true
   )
   .options
