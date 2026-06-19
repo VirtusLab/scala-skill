@@ -111,6 +111,9 @@ val serverOptions: NettySyncServerOptions = NettySyncServerOptions.customiseInte
 ## Starting the server
 
 ```scala
+import sttp.tapir.server.netty.NettyConfig
+import sttp.tapir.server.netty.sync.{NettySyncServer, NettySyncServerBinding}
+
 def start()(using Ox): NettySyncServerBinding =
   NettySyncServer(serverOptions, NettyConfig.default.host(config.host).port(config.port))
     .addEndpoints(allEndpoints)
