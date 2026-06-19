@@ -39,13 +39,13 @@ The package path under `scala/` mirrors the `organization` in `build.sbt`.
 ## build.sbt
 
 ```scala
-val oxVersion = "1.0.4"
+val oxVersion = "<latest>"
 
 lazy val root = (project in file(".")).settings(
   name         := "myapp",
   version      := "0.1.0-SNAPSHOT",
   organization := "com.example",
-  scalaVersion := "3.8.3",
+  scalaVersion := "<latest>",
   scalacOptions ++= Seq(
     "-Wunused:all",
     "-Wvalue-discard",
@@ -53,7 +53,7 @@ lazy val root = (project in file(".")).settings(
   ),
   libraryDependencies ++= Seq(
     "com.softwaremill.ox" %% "core"            % oxVersion,
-    "ch.qos.logback"       % "logback-classic" % "1.5.32"
+    "ch.qos.logback"       % "logback-classic" % "<latest>"
   )
 )
 ```
@@ -64,16 +64,20 @@ lazy val root = (project in file(".")).settings(
 > effects aren't tracked by types. Fix warnings at source; only use `@nowarn`
 > for generated code or unfixable third-party issues.
 
+> **Note:** `<latest>` (here and below) is a placeholder — resolve the current
+> release of each library and tool rather than copying a pinned number, which
+> goes stale.
+
 ## project/plugins.sbt
 
 ```scala
-addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.4.6")
+addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "<latest>")
 ```
 
 ## project/build.properties
 
 ```
-sbt.version=1.12.5
+sbt.version=<latest>
 ```
 
 Pins the sbt launcher version so every contributor and CI run uses the same
@@ -82,7 +86,7 @@ tool.
 ## .scalafmt.conf
 
 ```
-version = 3.11.0
+version = <latest>
 maxColumn = 140
 runner.dialect = scala3
 ```
