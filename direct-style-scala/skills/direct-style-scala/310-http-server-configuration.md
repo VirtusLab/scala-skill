@@ -111,11 +111,19 @@ val serverOptions: NettySyncServerOptions = NettySyncServerOptions.customiseInte
 ## Starting the server
 
 ```scala
+import sttp.tapir.server.netty.NettyConfig
+import sttp.tapir.server.netty.sync.{NettySyncServer, NettySyncServerBinding}
+
 def start()(using Ox): NettySyncServerBinding =
   NettySyncServer(serverOptions, NettyConfig.default.host(config.host).port(config.port))
     .addEndpoints(allEndpoints)
     .start()
 ```
+
+> **Note:** the packages differ — `NettySyncServer` and `NettySyncServerBinding`
+> live in `sttp.tapir.server.netty.sync`, but `NettyConfig` lives one package up,
+> in `sttp.tapir.server.netty` (it is shared with the non-sync Netty backends).
+> Importing `NettyConfig` from `...netty.sync` does not compile.
 
 `NettySyncServer.start()` takes `(using Ox)` — it registers the server as a
 resource in the current scope, stopping it on scope termination.

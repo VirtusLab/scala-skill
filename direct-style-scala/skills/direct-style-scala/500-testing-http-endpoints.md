@@ -120,3 +120,12 @@ Test / scalacOptions += "-Wconf:msg=value of type org.scalatest.Assertion:s"
 Test / scalacOptions += "-Wconf:msg=value of type org.scalatest.compatible.Assertion:s"
 ```
 
+A third suppression is needed for ScalaTest's matcher DSL: calls like
+`response.code shouldBe StatusCode.Ok` use an alphanumeric method (`shouldBe`,
+`should`) in infix position, which Scala 3 flags with "Alphanumeric method … is
+not declared infix". Silence it in `Test` scope too:
+
+```scala
+Test / scalacOptions += "-Wconf:msg=Alphanumeric method.*is not declared infix:s"
+```
+
