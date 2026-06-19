@@ -1,11 +1,17 @@
 # New Project Setup
 
-Bootstrap a minimal direct-style Scala project using sbt and Ox. The skeleton
-below gives a compiling, runnable entry point with nothing else — add
-features (HTTP, JSON, persistence, config) by following the chapters listed
-at the end. For a project that already includes a Tapir HTTP server, use
-[adopt-tapir](https://adopt-tapir.softwaremill.com) with **Scala 3** / **sbt**
-/ **Ox stack** / **Netty**.
+For an **HTTP project**, generate the skeleton with
+[adopt-tapir](https://adopt-tapir.softwaremill.com) (**Scala 3** / **sbt** / **Ox
+stack** / **Netty**) rather than assembling the server by hand. It produces a
+compiling, runnable project — entry point, server wiring, an example endpoint,
+JSON, and a test — already on the direct-style stack; the chapters then explain
+each part and add what the skeleton omits (error handling, auth, config,
+persistence).
+
+For a **non-HTTP** app (CLI, worker, batch job), bootstrap the minimal sbt + Ox
+skeleton below — a compiling, runnable entry point with nothing else. Either way,
+add features (HTTP, JSON, persistence, config) by following the chapters listed at
+the end.
 
 ## Dependencies
 
