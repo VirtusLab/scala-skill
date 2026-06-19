@@ -299,9 +299,10 @@ https://raw.githubusercontent.com/virtuslab/scala-skill/refs/heads/master/direct
   parameterless enums as plain strings via `withDiscriminatorFieldName(None)`,
   and using opaque-type identifiers directly in DTOs.
 
-- [Endpoint Input Codecs](360-endpoint-input-codecs.md) — `PlainCodec`s for
-  path/query/header inputs: mapping a built-in codec onto an opaque-type id, and
-  `Codec.derivedEnumeration` for enum-valued inputs.
+- [Endpoint Inputs](360-endpoint-inputs.md) — `PlainCodec`s for
+  path/query/header inputs: mapping a built-in codec onto an opaque-type id,
+  `Codec.derivedEnumeration` for enum-valued inputs, and how multiple inputs reach
+  the handler.
 
 ## Data & Integration
 

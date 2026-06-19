@@ -1,4 +1,8 @@
-# Endpoint Input Codecs
+# Endpoint Inputs
+
+An endpoint's inputs are declared with `.in(...)` — path segments, query
+parameters, headers, and bodies. This chapter covers decoding non-body inputs into
+custom types, and how several inputs are passed to the handler.
 
 Path, query, and header values are decoded from strings by a Tapir `Codec` — a
 `PlainCodec[T]`, i.e. `Codec[String, T, CodecFormat.TextPlain]` — which is a
@@ -50,4 +54,21 @@ object Sort:
     Codec.derivedEnumeration[String, Sort].defaultStringBased
 
 // endpoint.in(query[Sort]("sort"))
+```
+
+## Multiple inputs
+
+Each `.in(...)` adds to the endpoint's input type; several of them make it a tuple.
+The handler receives that tuple untupled — one parameter per input, in declaration
+order — because Scala 3 untuples the function literal, so there's nothing to
+destructure (`.handle` wires the logic; see [Error Handling](200-error-handling.md)):
+
+```scala
+val updateUser = baseEndpoint.put
+  .in("todos" / path[TodoId]("id"))
+  .in(jsonBody[UpdateTodo_IN])
+  .out(jsonBody[Todo_OUT])
+
+updateUser.handle: (id, body) =>
+  todoService.update(id, body) // id: TodoId, body: UpdateTodo_IN
 ```
