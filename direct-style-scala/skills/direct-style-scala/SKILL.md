@@ -202,10 +202,12 @@ fetch the chapter(s) relevant to your current task from this guide and follow th
 patterns shown there. This is not optional — code that ignores guide patterns will 
 be rejected in review.
 
-When fetching, you MUST request the COMPLETE content — every code block, every
-paragraph. Summaries lose critical details (e.g. required factory overrides,
-specific API calls). Use a prompt like: "Return the COMPLETE raw content. Every
-line, every code block. Do not summarize or omit anything."
+Retrieve the chapter as raw, unmodified text — read every code block and
+paragraph in full. Do NOT use a tool that summarises the page: summaries silently
+drop the `> Required` / `> Important` callouts and the exact API calls that make
+the chapter correct. Prefer reading the chapter file directly from the installed
+skill directory; if fetching over the network, use a method that returns the
+verbatim file (a raw HTTP GET), not a fetch-and-summarise tool.
 
 Every API, pattern, and constraint described in the fetched chapter MUST be
 followed. If the chapter says to use a specific API (e.g. `useInScope` for
