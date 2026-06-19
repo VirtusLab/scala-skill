@@ -52,6 +52,12 @@ private val failOutput: EndpointOutput[Fail] =
     .map(responseDataToFail.tupled)(failToResponseData)
 ```
 
+> **Note:** `responseDataToFail` is typed `(StatusCode, String) => Fail` — a
+> two-argument function — yet is written with `case (s, m) =>` clauses. When the
+> expected type is a `FunctionN`, Scala 3 reads a block of `case` clauses as matching
+> the tuple of all N arguments. `.tupled` then adapts it to the
+> `((StatusCode, String)) => Fail` that `EndpointOutput.map`'s reverse direction expects.
+
 > **Important:** these are `val`s, evaluated top-to-bottom as the enclosing object
 > initialises. The mapping functions must be declared before `failOutput`, and
 > `failOutput` before `baseEndpoint` (below); otherwise the dependent val reads an
