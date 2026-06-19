@@ -112,10 +112,11 @@ back into the application's error type:
 (as above) trips the `-Wnonunit-statement` / `-Wvalue-discard` warnings the build
 enables (see [New Project Setup](140-new-project-setup.md)). Rather than forcing
 every test into a single trailing assertion, silence just that case in `Test`
-scope — as tapir and sttp do:
+scope — as tapir and sttp do (the `value of type` substring matches the messages
+from both warnings):
 
 ```scala
-Test / scalacOptions += "-Wconf:msg=unused value of type org.scalatest.Assertion:s"
-Test / scalacOptions += "-Wconf:msg=unused value of type org.scalatest.compatible.Assertion:s"
+Test / scalacOptions += "-Wconf:msg=value of type org.scalatest.Assertion:s"
+Test / scalacOptions += "-Wconf:msg=value of type org.scalatest.compatible.Assertion:s"
 ```
 
