@@ -101,6 +101,20 @@ def findUser(id: Id[User])(using DbTx): Either[Fail, User] =
   resource must be tied to that parent scope's lifetime.
 * keep constructors plain; use factories that take `(using Ox)` and return
   values that do not carry the capability.
+* decide the owning scope BEFORE writing concurrent code. Model a stream reader
+  or worker as a fork in a `supervised` scope whose lifetime matches the work;
+  its result is the fork's **return value** (`fork{…}.join()`), not a value
+  published through a shared `AtomicReference`. NEVER return an object that owns
+  running forks/threads to be driven later — its lifetime escapes every scope,
+  making cancellation and cleanup manual again. Pass a consumer into the scope
+  instead of handing a live handle out.
+* a fork blocked on a non-interruptible read (subprocess pipe, socket, blocking
+  recv) is NOT ended by scope cancellation — only closing the underlying resource
+  EOFs it. Close/destroy it in the scope body's `finally`, BEFORE the scope joins
+  the fork; NEVER rely on `releaseAfterScope`, which Ox runs after the join and so
+  deadlocks on the blocked read. For a launcher subprocess, destroy the whole
+  process tree. See [Subprocesses and External
+  Streams](170-subprocesses-and-external-streams.md).
 
 # Functional programming
 
@@ -265,6 +279,12 @@ https://raw.githubusercontent.com/virtuslab/scala-skill/refs/heads/master/direct
   — Flows for declarative concurrent pipelines (`mapPar`, `merge`,
   `mapStateful`), Ox primitive selection, channels for worker mailboxes and
   shutdown, actors for serialized mutable state.
+
+- [Subprocesses and External Streams](170-subprocesses-and-external-streams.md)
+  — driving a subprocess / socket / SSE reader as a fork whose return value is
+  the result; why a blocking non-interruptible read needs the resource destroyed
+  in the scope body's `finally` (before the join) rather than via
+  `releaseAfterScope`; process-tree teardown; pipe back-pressure.
 
 ## Error Handling
 
