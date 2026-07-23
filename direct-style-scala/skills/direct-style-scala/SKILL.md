@@ -85,6 +85,12 @@ def findUser(id: Id[User])(using DbTx): Either[Fail, User] =
 
 * NEVER materialize unbounded data into memory. Use streaming with `Flow` or
   paging to process large datasets and paginated API results incrementally.
+* virtual threads are never preempted — a long CPU-bound computation (even
+  inside `mapPar`) starves every other virtual thread in the process. Run long
+  or non-instrumentable compute via `computeIntensive` (platform-thread pool;
+  the blocking caller keeps it structured); in CPU-bound loops you control,
+  call `cede()` about once per millisecond. See [Concurrency and Inter-Thread
+  Communication](150-shared-state-across-threads.md).
 
 # Direct-style Scala
 
@@ -100,7 +106,10 @@ def findUser(id: Id[User])(using DbTx): Either[Fail, User] =
   job-level concurrency. Accept a parent `(using Ox)` only when a fork or
   resource must be tied to that parent scope's lifetime.
 * keep constructors plain; use factories that take `(using Ox)` and return
-  values that do not carry the capability.
+  values that do not carry the capability. If the factory only registers
+  resources and starts no forks, take the narrower `(using ResourceScope)`;
+  for scoped cleanup with no enclosing scope and no concurrency, use
+  `resourceScope` instead of `supervised`.
 * decide the owning scope BEFORE writing concurrent code. Model a stream reader
   or worker as a fork in a `supervised` scope whose lifetime matches the work;
   its result is the fork's **return value** (`fork{…}.join()`), not a value
@@ -265,7 +274,9 @@ https://raw.githubusercontent.com/virtuslab/scala-skill/refs/heads/master/direct
   sbt/Scalafix boundary enforcement.
 
 - [Resource Management](100-resource-management.md) — `useInScope`,
-  `useCloseableInScope`, reverse-order release, scope-based cleanup.
+  `useCloseableInScope`, reverse-order release, scope-based cleanup;
+  `resourceScope` for cleanup without concurrency, `using ResourceScope` as
+  the narrower capability.
 
 - [Background Processes](110-background-processes.md) — `OxApp` entry point,
   `forkDiscard`/`forkUserDiscard` for daemon vs. user threads,
@@ -282,7 +293,8 @@ https://raw.githubusercontent.com/virtuslab/scala-skill/refs/heads/master/direct
 - [Concurrency and Inter-Thread Communication](150-shared-state-across-threads.md)
   — Flows for declarative concurrent pipelines (`mapPar`, `merge`,
   `mapStateful`), Ox primitive selection, channels for worker mailboxes and
-  shutdown, actors for serialized mutable state.
+  shutdown, actors for serialized mutable state, `computeIntensive`/`cede` for
+  CPU-bound work on virtual threads.
 
 - [Subprocesses and External Streams](170-subprocesses-and-external-streams.md)
   — driving a subprocess / socket / SSE reader as a fork whose return value is
