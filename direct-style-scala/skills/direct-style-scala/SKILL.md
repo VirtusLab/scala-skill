@@ -108,12 +108,15 @@ def findUser(id: Id[User])(using DbTx): Either[Fail, User] =
   running forks/threads to be driven later — its lifetime escapes every scope,
   making cancellation and cleanup manual again. Pass a consumer into the scope
   instead of handing a live handle out.
-* a fork blocked on a non-interruptible read (subprocess pipe, socket, blocking
-  recv) is NOT ended by scope cancellation — only closing the underlying resource
-  EOFs it. Close/destroy it in the scope body's `finally`, BEFORE the scope joins
-  the fork; NEVER rely on `releaseAfterScope`, which Ox runs after the join and so
-  deadlocks on the blocked read. For a launcher subprocess, destroy the whole
-  process tree. See [Subprocesses and External
+* a fork blocked in a classic `java.io` stream read (subprocess pipe,
+  `FileInputStream`, stdin) is NOT ended by scope cancellation — such reads
+  ignore interruption. Either close/destroy the resource in the scope body's
+  `finally`, BEFORE the scope joins the fork — NEVER via `releaseAfterScope`,
+  which Ox runs after the join and so deadlocks on the blocked read — or wrap
+  the stream with `abandonOnInterruptReads` so reads become interruptible.
+  (Socket reads on Ox's virtual-thread forks ARE interruptible: the interrupt
+  closes the socket.) For a launcher subprocess, destroy the whole process
+  tree. See [Subprocesses and External
   Streams](170-subprocesses-and-external-streams.md).
 
 # Functional programming
@@ -282,9 +285,10 @@ https://raw.githubusercontent.com/virtuslab/scala-skill/refs/heads/master/direct
 
 - [Subprocesses and External Streams](170-subprocesses-and-external-streams.md)
   — driving a subprocess / socket / SSE reader as a fork whose return value is
-  the result; why a blocking non-interruptible read needs the resource destroyed
+  the result; why a non-interruptible pipe read needs the resource destroyed
   in the scope body's `finally` (before the join) rather than via
-  `releaseAfterScope`; process-tree teardown; pipe back-pressure.
+  `releaseAfterScope`; process-tree teardown; `abandonOnInterruptReads` for
+  reads that can't be unblocked by closing; pipe back-pressure.
 
 ## Error Handling
 
