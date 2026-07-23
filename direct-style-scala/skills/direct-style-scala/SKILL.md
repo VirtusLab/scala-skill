@@ -90,8 +90,7 @@ def findUser(id: Id[User])(using DbTx): Either[Fail, User] =
   thread in the process. Run long or non-instrumentable compute via
   `computeIntensive` (platform-thread pool; the blocking caller keeps it
   structured); in CPU-bound loops you control, call `cede()` about once per
-  millisecond. See [Concurrency and Inter-Thread
-  Communication](150-shared-state-across-threads.md).
+  millisecond.
 
 # Direct-style Scala
 
