@@ -3,7 +3,8 @@
 ## Dependencies
 
 - `"com.softwaremill.ox" %% "core"` — `Flow`, `par`, `supervised`, `fork`,
-  `forkDiscard`, `forkUserDiscard`, channels, actors
+  `forkDiscard`, `forkUserDiscard`, channels, actors, `computeIntensive`,
+  `cede`
 
 ---
 
@@ -26,6 +27,7 @@ when bridging a foreign API that Ox does not cover.
 | Mailbox or producer-consumer queue | `ox.channels.Channel[T]` |
 | Collection fan-out | `Flow.mapPar` or `Flow.mapParUnordered` |
 | Serialized access to mutable state | `Actor` |
+| Long CPU-bound computation | `computeIntensive` (see below) |
 
 ## Flows
 
@@ -287,6 +289,51 @@ stateRef.updateAndGet(state => process(state, item)).discard
 > **Warning:** Never use `AtomicReference` as a lifecycle, cancellation, or
 > shutdown flag. Model lifecycle with Ox scope structure or channel completion.
 
+## CPU-intensive work
+
+Ox forks run on virtual threads, which are never preempted: a thread yields
+only when it blocks. A long CPU-bound computation therefore monopolizes a
+carrier thread — and since there are only as many carriers as CPU cores (by
+default), a handful of such computations can starve every other virtual
+thread in the process, including latency-sensitive ones like HTTP handlers.
+Two remedies
+(Ox ≥ 1.0.6), depending on the computation:
+
+- for short bursts in code you control, call `cede()` about once every
+  millisecond of computation (a call costs ~1µs): it yields the virtual thread
+  back to the scheduler and checks the interrupt flag, making the loop both
+  fair and cancellable;
+- for long-running computations, or code that can't be instrumented with
+  yields (a third-party library), wrap the call in `computeIntensive`: the
+  computation runs on a pool of platform threads — which the OS preempts —
+  while the calling virtual thread blocks until the result is available.
+
+```scala
+import ox.*
+
+def expensive(): BigInt = (1 to 1_000_000).map(BigInt(_)).product
+
+supervised:
+  val f1 = fork(computeIntensive(expensive()))
+  val f2 = fork(computeIntensive(expensive()))
+  f1.join() + f2.join()
+```
+
+Because the caller blocks, `computeIntensive` stays structured — the
+computation never outlives the enclosing scope — and composes with `fork`,
+`par`, `race`, and `mapPar`. On cancellation the pool task is interrupted and
+the caller waits for it to complete, so computations should still call
+`checkInterrupt()` (or `cede()`) periodically where possible — a
+non-cooperating computation delays the scope's shutdown until it finishes, and
+a `timeout` around it overshoots accordingly.
+
+> **Warning:** Scope context does not propagate into the computation: `fork`
+> inside `computeIntensive` fails, `ForkLocal`s read their defaults, and
+> thread-local integrations (MDC, OpenTelemetry context — see [OpenTelemetry
+> Observability](510-opentelemetry-observability.md)) do not cross the
+> boundary. Compute the value on the pool; do the forking, logging context,
+> and tracing on the virtual-thread side.
+
 ## Scope propagation
 
 Prefer local, focused scopes. If a method only needs concurrency to compute its
@@ -312,8 +359,10 @@ def loadBoth(userId: UserId, accountId: AccountId): (User, Account) =
 ```
 
 > **Important:** `(using Ox)` in a method signature means "I will start
-> forks or register resources in your scope." If the method manages its own
-> concurrency lifecycle, use a local `supervised` block instead.
+> forks or register resources in your scope." If the method only registers
+> resources and starts no forks, declare the narrower `(using ResourceScope)`
+> instead (see [Resource Management](100-resource-management.md)); if it
+> manages its own concurrency lifecycle, use a local `supervised` block.
 
 ## Choosing the right pattern
 
@@ -326,3 +375,4 @@ Prefer the highest-level primitive that fits the shape of the problem:
 | **Channel** | Modeling an explicit protocol, mailbox, producer-consumer queue, or callback boundary. |
 | **Actor** | Multiple concurrent callers must access one mutable object serially. |
 | **AtomicReference** | A single shared value needs pure atomic updates; never use it for lifecycle flags. |
+| **computeIntensive** | Long or non-instrumentable CPU-bound work that must not starve virtual threads. |

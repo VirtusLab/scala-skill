@@ -85,6 +85,12 @@ def findUser(id: Id[User])(using DbTx): Either[Fail, User] =
 
 * NEVER materialize unbounded data into memory. Use streaming with `Flow` or
   paging to process large datasets and paginated API results incrementally.
+* virtual threads are never preempted — long CPU-bound computations (a few
+  suffice, e.g. a `mapPar` over such work) can starve every other virtual
+  thread in the process. Run long or non-instrumentable compute via
+  `computeIntensive` (platform-thread pool; the blocking caller keeps it
+  structured); in CPU-bound loops you control, call `cede()` about once per
+  millisecond.
 
 # Direct-style Scala
 
@@ -100,7 +106,23 @@ def findUser(id: Id[User])(using DbTx): Either[Fail, User] =
   job-level concurrency. Accept a parent `(using Ox)` only when a fork or
   resource must be tied to that parent scope's lifetime.
 * keep constructors plain; use factories that take `(using Ox)` and return
-  values that do not carry the capability.
+  values that do not carry the capability. If the factory only registers
+  resources and starts no forks, take the narrower `(using ResourceScope)`;
+  for scoped cleanup with no enclosing scope and no concurrency, use
+  `resourceScope` instead of `supervised`.
+* decide the owning scope BEFORE writing concurrent code. Model a stream reader
+  or worker as a fork in a `supervised` scope whose lifetime matches the work;
+  its result is the fork's **return value** (`fork{…}.join()`), not a value
+  published through a shared `AtomicReference`. NEVER return an object that owns
+  running forks/threads to be driven later — its lifetime escapes every scope,
+  making cancellation and cleanup manual again. Pass a consumer into the scope
+  instead of handing a live handle out.
+* a fork blocked reading a subprocess pipe, stdin, a file, or any other
+  classic `java.io` stream is NOT ended by scope cancellation — without the
+  right teardown shape, shutdown deadlocks. BEFORE writing code that drives a
+  subprocess or reads a blocking external stream (socket, SSE), read
+  [Subprocesses and External
+  Streams](170-subprocesses-and-external-streams.md).
 
 # Functional programming
 
@@ -247,7 +269,9 @@ https://raw.githubusercontent.com/virtuslab/scala-skill/refs/heads/master/direct
   sbt/Scalafix boundary enforcement.
 
 - [Resource Management](100-resource-management.md) — `useInScope`,
-  `useCloseableInScope`, reverse-order release, scope-based cleanup.
+  `useCloseableInScope`, reverse-order release, scope-based cleanup;
+  `resourceScope` for cleanup without concurrency, `using ResourceScope` as
+  the narrower capability.
 
 - [Background Processes](110-background-processes.md) — `OxApp` entry point,
   `forkDiscard`/`forkUserDiscard` for daemon vs. user threads,
@@ -264,7 +288,15 @@ https://raw.githubusercontent.com/virtuslab/scala-skill/refs/heads/master/direct
 - [Concurrency and Inter-Thread Communication](150-shared-state-across-threads.md)
   — Flows for declarative concurrent pipelines (`mapPar`, `merge`,
   `mapStateful`), Ox primitive selection, channels for worker mailboxes and
-  shutdown, actors for serialized mutable state.
+  shutdown, actors for serialized mutable state, `computeIntensive`/`cede` for
+  CPU-bound work on virtual threads.
+
+- [Subprocesses and External Streams](170-subprocesses-and-external-streams.md)
+  — driving a subprocess / socket / SSE reader as a fork whose return value is
+  the result; why a non-interruptible pipe read needs the resource destroyed
+  in the scope body's `finally` (before the join) rather than via
+  `releaseAfterScope`; process-tree teardown; `abandonOnInterruptReads` for
+  reads that can't be unblocked by closing; pipe back-pressure.
 
 ## Error Handling
 
