@@ -87,10 +87,10 @@ def findUser(id: Id[User])(using DbTx): Either[Fail, User] =
   paging to process large datasets and paginated API results incrementally.
 * virtual threads are never preempted — long CPU-bound computations (a few
   suffice, e.g. a `mapPar` over such work) can starve every other virtual
-  thread in the process. Run long
-  or non-instrumentable compute via `computeIntensive` (platform-thread pool;
-  the blocking caller keeps it structured); in CPU-bound loops you control,
-  call `cede()` about once per millisecond. See [Concurrency and Inter-Thread
+  thread in the process. Run long or non-instrumentable compute via
+  `computeIntensive` (platform-thread pool; the blocking caller keeps it
+  structured); in CPU-bound loops you control, call `cede()` about once per
+  millisecond. See [Concurrency and Inter-Thread
   Communication](150-shared-state-across-threads.md).
 
 # Direct-style Scala
@@ -105,8 +105,7 @@ def findUser(id: Id[User])(using DbTx): Either[Fail, User] =
   pure atomic state or when bridging a foreign API that Ox does not cover.
 * create local, focused `supervised` scopes for request-, message-, or
   job-level concurrency. Accept a parent `(using Ox)` only when a fork or
-  resource must be tied to that parent scope's lifetime (if it's only
-  resources, take `(using ResourceScope)`).
+  resource must be tied to that parent scope's lifetime.
 * keep constructors plain; use factories that take `(using Ox)` and return
   values that do not carry the capability. If the factory only registers
   resources and starts no forks, take the narrower `(using ResourceScope)`;
