@@ -117,16 +117,11 @@ def findUser(id: Id[User])(using DbTx): Either[Fail, User] =
   running forks/threads to be driven later — its lifetime escapes every scope,
   making cancellation and cleanup manual again. Pass a consumer into the scope
   instead of handing a live handle out.
-* a fork blocked in a classic `java.io` stream read (subprocess pipe,
-  `FileInputStream`, stdin) is NOT ended by scope cancellation — such reads
-  ignore interruption. For a subprocess, destroy it in the scope body's
-  `finally`, BEFORE the scope joins the fork (the pipe read then EOFs) — NEVER
-  via `releaseAfterScope`, which Ox runs after the join and so deadlocks on the
-  blocked read. For streams that closing can't unblock (stdin,
-  `FileInputStream`), wrap the stream with `abandonOnInterruptReads` so reads
-  become interruptible. (Socket reads on Ox's virtual-thread forks ARE
-  interruptible: the interrupt closes the socket.) For a launcher subprocess,
-  destroy the whole process tree. See [Subprocesses and External
+* a fork blocked reading a subprocess pipe, stdin, a file, or any other
+  classic `java.io` stream is NOT ended by scope cancellation — without the
+  right teardown shape, shutdown deadlocks. BEFORE writing code that drives a
+  subprocess or reads a blocking external stream (socket, SSE), read
+  [Subprocesses and External
   Streams](170-subprocesses-and-external-streams.md).
 
 # Functional programming
