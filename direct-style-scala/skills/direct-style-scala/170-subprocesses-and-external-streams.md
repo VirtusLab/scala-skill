@@ -109,7 +109,7 @@ Destroy-and-EOF works because a subprocess supports asynchronous close. Some
 resources don't: stdin can't be meaningfully closed, and closing a
 `FileInputStream` does not unblock a pending read. And sometimes a single read
 should be cancellable (a `timeout` around one read) without tearing the
-resource down. For these, Ox (since 1.0.6) provides `abandonOnInterruptReads`:
+resource down. For these, use `abandonOnInterruptReads` (Ox ≥ 1.0.6):
 it wraps an `InputStream` so the actual reads run on a *detached* virtual
 thread — unmanaged, never joined — while the calling fork awaits each chunk
 interruptibly. On interruption the wait is abandoned: the fork proceeds with an

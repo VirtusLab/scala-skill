@@ -17,10 +17,12 @@ when the scope ends.
 ## Application resource setup
 
 The `Dependencies.create` method acquires all resources within the application's
-root scope:
+root scope. It only registers resources — no forks — so it declares
+`using ResourceScope` rather than `using Ox` (see below); the root `Ox` scope
+satisfies it:
 
 ```scala
-def create(using Ox): Dependencies =
+def create(using ResourceScope): Dependencies =
   val config = Config.read.tap(Config.log)
   val otel = initializeOtel()
   val sttpBackend = useInScope(
@@ -60,7 +62,8 @@ def process(): Unit = resourceScope:
 
 A resource scope can only be started where no concurrency scope is lexically
 visible — verified at compile time, because a fork started inside a visible
-resource scope could outlive it. Within a concurrency scope, register
+resource scope could outlive it, using resources after they have been
+released. Within a concurrency scope, register
 resources directly instead; to use a resource scope e.g. in a fork's body,
 extract it to a method that doesn't take `using Ox` — good practice in itself.
 

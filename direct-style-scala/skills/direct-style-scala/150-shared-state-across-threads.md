@@ -293,9 +293,10 @@ stateRef.updateAndGet(state => process(state, item)).discard
 
 Ox forks run on virtual threads, which are never preempted: a thread yields
 only when it blocks. A long CPU-bound computation therefore monopolizes a
-carrier thread — and since there are only as many carriers as CPU cores, a
-handful of such computations can starve every other virtual thread in the
-process, including latency-sensitive ones like HTTP handlers. Two remedies
+carrier thread — and since there are only as many carriers as CPU cores (by
+default), a handful of such computations can starve every other virtual
+thread in the process, including latency-sensitive ones like HTTP handlers.
+Two remedies
 (Ox ≥ 1.0.6), depending on the computation:
 
 - for short bursts in code you control, call `cede()` about once every
@@ -308,6 +309,8 @@ process, including latency-sensitive ones like HTTP handlers. Two remedies
   while the calling virtual thread blocks until the result is available.
 
 ```scala
+import ox.*
+
 def expensive(): BigInt = (1 to 1_000_000).map(BigInt(_)).product
 
 supervised:
@@ -321,7 +324,8 @@ computation never outlives the enclosing scope — and composes with `fork`,
 `par`, `race`, and `mapPar`. On cancellation the pool task is interrupted and
 the caller waits for it to complete, so computations should still call
 `checkInterrupt()` (or `cede()`) periodically where possible — a
-non-cooperating computation delays the scope's shutdown until it finishes.
+non-cooperating computation delays the scope's shutdown until it finishes, and
+a `timeout` around it overshoots accordingly.
 
 > **Warning:** Scope context does not propagate into the computation: `fork`
 > inside `computeIntensive` fails, `ForkLocal`s read their defaults, and
