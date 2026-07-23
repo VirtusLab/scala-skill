@@ -11,7 +11,7 @@ only shows up at shutdown.
 ## Dependencies
 
 - `"com.softwaremill.ox" %% "core"` — `supervised`, `fork`, `forkDiscard`,
-  `releaseAfterScope`, `abandonOnInterruptReads`
+  `abandonOnInterruptReads`
 
 ---
 
@@ -59,8 +59,10 @@ Fix"; see [which operations are
 interruptible](https://ox.softwaremill.com/latest/structured-concurrency/interruptions.html)
 in the Ox docs). Ox ends a scope by interrupting its forks and then joining
 them, so interruption alone will not stop such a fork, and the join blocks
-forever. The only thing that unblocks the read is closing the underlying
-resource — destroying the process — which makes the read return EOF.
+forever. For a subprocess, what unblocks the read is destroying the process:
+that closes the pipe's write-end, and the read returns EOF. Streams that don't
+support an asynchronous close — stdin, `FileInputStream` — can't be unblocked
+this way at all; wrap those with `abandonOnInterruptReads` (below).
 
 Blocking *socket* reads are different: on virtual threads — which Ox forks run
 on — they are interruptible since Java 21, though destructively (the interrupt
@@ -111,16 +113,15 @@ resource down. For these, Ox (since 1.0.6) provides `abandonOnInterruptReads`:
 it wraps an `InputStream` so the actual reads run on a *detached* virtual
 thread — unmanaged, never joined — while the calling fork awaits each chunk
 interruptibly. On interruption the wait is abandoned: the fork proceeds with an
-`InterruptedException`, the in-flight chunk is not lost (the next read returns
-it), and with `closeOnAbandon = true` the underlying stream is additionally
-closed.
+`InterruptedException`, and the in-flight chunk is not lost — the next read
+returns it. With `closeOnAbandon = true`, an interrupted read instead closes
+the underlying stream, and the wrapper becomes permanently closed.
 
 ```scala
 import ox.*
 import scala.concurrent.duration.*
 
-// stdin can be neither interrupted nor usefully closed — wrap it once,
-// process-wide (multiple wrappers would compete for input):
+// one process-wide wrapper: multiple wrappers over System.in would compete for input
 lazy val stdin = abandonOnInterruptReads(System.in)
 
 supervised:
@@ -132,15 +133,16 @@ underlying read completes — for stdin, possibly for the application's lifetime
 That is a cheap virtual thread in exchange for interruptibility. For a
 subprocess, the body-`finally` destroy remains the primary teardown: it
 terminates the child *and* EOFs the pipe, leaving nothing behind. Wrapping the
-process's output stream as well makes the reader fork immune to a mis-sequenced
-teardown (scope cancellation can then always end it) — but it never replaces
-destroying the process.
+process's stdout (`process.getInputStream`) as well makes the reader fork
+immune to a mis-sequenced teardown (scope cancellation can then always end
+it) — but it never replaces destroying the process.
 
 For one-off uninterruptible calls (a JDBC `execute`, a DNS lookup) there is
 `abandonOnInterrupt(op)(onAbandon)`, where the cleanup starts on abandonment —
 e.g. `abandonOnInterrupt(statement.execute())(connection.close())`. For
 resources supporting asynchronous close, the cleanup also unblocks the
-abandoned operation, so nothing is leaked.
+abandoned operation, so nothing is leaked. `abandonOnInterruptWrites` covers
+the write side — e.g. a write to the child's stdin blocked on a full pipe.
 
 ## Don't let an unread pipe stall the process
 
