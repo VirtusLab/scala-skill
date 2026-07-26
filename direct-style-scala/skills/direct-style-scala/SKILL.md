@@ -62,12 +62,47 @@ You are an expert backend software engineer and architect.
   its own well-named function so the orchestrator reads as a sequence of
   intentions. Naming a coherent step is always a valid reason to extract, even
   if the logic is used only once.
+* when a mapping or derivation (settings precedence, a pricing table, a status
+  resolution rule) is needed a second time — in a summary, a log line, a
+  display view — call the existing function; NEVER let the second location
+  reimplement the rule with its own copy. Copies drift from the original as
+  the rule evolves:
+
+```scala
+// Wrong — the summary reimplements the resolver's precedence rule, and the two drift:
+def resolvedTimeout(config: Config): Duration =
+  config.env.timeout.getOrElse(config.file.timeout.getOrElse(config.default))
+
+def summarize(config: Config): String =
+  s"timeout=${config.file.timeout.getOrElse(config.default)}" // forgot the env override
+
+// Right — the summary calls the same resolver production code uses:
+def summarize(config: Config): String =
+  s"timeout=${resolvedTimeout(config)}"
+```
 * use Ox's `.pipe` and `.tap` (`import ox.*`) to drop single-use `val`s that
   only feed the next line. `.pipe(f)` returns `f(value)`; `.tap(f)` runs a side
   effect and returns the value unchanged. Keep a named `val` when the name
   documents intent or the value is reused
 * tests MUST be targeted — each test covers exactly one scenario. No
   overlapping or redundant tests.
+* if code CLAIMS to be compilable or runnable — a generated template, skeleton,
+  or scaffolding — verify that claim in a test by actually compiling or
+  running the output. Asserting on substrings of the generated text can pass
+  while the generated code fails to compile:
+
+```scala
+// Wrong — passes even if the generated skeleton doesn't compile:
+"generated skeleton" should "contain the entry point" in {
+  generateSkeleton(name = "demo").contains("OxApp.Simple") shouldBe true
+}
+
+// Right — the generated project is actually compiled:
+"generated skeleton" should "compile" in {
+  val dir = generateSkeleton(name = "demo")
+  sys.process.Process(Seq("sbt", "compile"), dir).! shouldBe 0
+}
+```
 * every public function, val, and given MUST have an explicit return type — this
   prevents accidental signature drift during refactors:
 
@@ -197,6 +232,23 @@ enum FlushOutcome:
   case Success, Failure
 def recordFlush(outcome: FlushOutcome, duration: Duration): Unit
 ```
+* avoid 3+ adjacent parameters (or fields) of the same type, and any adjacent
+  pair whose types could swap without a compile error (e.g. two
+  `Option[String]`) — positional calls silently transpose them. Require named
+  arguments at call sites, or bundle the parameters into a small case class:
+
+```scala
+// Wrong — three positional BigDecimals, easy to transpose across many call sites:
+case class ModelPricing(
+    inputPrice: BigDecimal,
+    cachedInputPrice: BigDecimal,
+    outputPrice: BigDecimal
+)
+ModelPricing(0.003, 0.0003, 0.015)
+
+// Right — named arguments make the mapping checkable at each call site:
+ModelPricing(inputPrice = 0.003, cachedInputPrice = 0.0003, outputPrice = 0.015)
+```
 * NEVER throw exceptions for recoverable failures. Instead, return an `Either[E, T]`.
   Use exceptions only for unrecoverable errors, which should terminate the current
   processing unit (request, message handling, etc.)
@@ -231,6 +283,38 @@ object Port:
 
 * define sealed-trait or enum error hierarchies — NEVER use stringly-typed
   errors.
+* decode a wire value (HTTP status, webhook event type, external API field)
+  into an enum exactly once, at the boundary where it is received — with an
+  `Unknown(raw)` case for values not yet handled. Match exhaustively on the
+  enum downstream; never compare the raw string again. This includes the
+  field's ABSENCE: decide what a missing value means once, at decode time —
+  not by re-defaulting it differently in each handler:
+
+```scala
+// Wrong — raw string compared inline; each handler picks its own default for absence:
+if webhookA.status == "completed" then markDone()             // absent => not done
+if webhookB.status.getOrElse("completed") == "completed" then
+  markDone()                                                  // absent => done
+
+// Right — decode once, with the absence rule explicit and matching exhaustive downstream:
+enum JobStatus:
+  case Completed, Failed, Pending
+  case Unknown(raw: String)
+
+object JobStatus:
+  def decode(raw: Option[String]): JobStatus = raw match
+    case Some("completed") => Completed
+    case Some("failed")    => Failed
+    case Some("pending")   => Pending
+    case Some(other)       => Unknown(other)
+    case None              => Pending // absence means "not finished" — decided here, once
+
+def handle(status: JobStatus): Unit = status match
+  case JobStatus.Completed    => markDone()
+  case JobStatus.Failed       => markFailed()
+  case JobStatus.Pending      => ()
+  case JobStatus.Unknown(raw) => log.warn(s"unrecognised status: $raw")
+```
 * NEVER use bare `try`/`catch` for recoverable failures. Reserve `try`/`catch` for
   defect or unrecoverable error boundaries only.
 
