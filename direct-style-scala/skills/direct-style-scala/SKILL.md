@@ -3,8 +3,6 @@ name: direct-style-scala
 description: Scala coding style, tooling, and functional programming guidance, with dedicated sections on direct-style Scala, Ox structured concurrency, and synchronous Tapir. Auto-load for any task involving Scala code, especially when using direct-style or "plain" Scala.
 ---
 
-You are an expert backend software engineer and architect.
-
 # Scala tooling
 
 * ALWAYS use tools to compile and run tests instead of relying on bash commands
@@ -48,24 +46,14 @@ You are an expert backend software engineer and architect.
   top-level visibility. Read [Code Organization and
   Visibility](160-code-organization.md) when adding packages/modules or
   widening visibility.
-* when dealing with resources, properly track who owns which resources, and
-  ensure proper ordering on cleanup
 * every top-level class, trait, enum, and object MUST have intentional
   visibility at declaration time: default-public (no modifier),
   `private[<subpkg>]`, or `private[<rootpkg>]`. Choose by scanning actual call
   sites.
-* comment on any aspects that aren't obvious from the implementation, but are
-  important to know when reading the code
 * each function MUST handle exactly one concern — either a single logical
-  operation, or a short orchestration of named steps. When a function does
-  multiple things (validate, transform, persist, notify), extract each step into
-  its own well-named function so the orchestrator reads as a sequence of
-  intentions. Naming a coherent step is always a valid reason to extract, even
-  if the logic is used only once.
-* use Ox's `.pipe` and `.tap` (`import ox.*`) to drop single-use `val`s that
-  only feed the next line. `.pipe(f)` returns `f(value)`; `.tap(f)` runs a side
-  effect and returns the value unchanged. Keep a named `val` when the name
-  documents intent or the value is reused
+  operation, or a short orchestration of named steps.
+* use Ox `.pipe`/`.tap` (`import ox.*`) to drop single-use `val`s that only
+  feed the next line; keep a named `val` when the name documents intent.
 * tests MUST be targeted — each test covers exactly one scenario. No
   overlapping or redundant tests.
 * every public function, val, and given MUST have an explicit return type — this
@@ -83,40 +71,26 @@ def findUser(id: Id[User])(using DbTx): Either[Fail, User] =
 
 # Performance
 
-* NEVER materialize unbounded data into memory. Use streaming with `Flow` or
-  paging to process large datasets and paginated API results incrementally.
-* virtual threads are never preempted — long CPU-bound computations (a few
-  suffice, e.g. a `mapPar` over such work) can starve every other virtual
-  thread in the process. Run long or non-instrumentable compute via
-  `computeIntensive` (platform-thread pool; the blocking caller keeps it
-  structured); in CPU-bound loops you control, call `cede()` about once per
-  millisecond.
+* NEVER materialize unbounded data in memory — stream with `Flow` or page.
+* virtual threads are never preempted: run long CPU-bound work via
+  `computeIntensive`; in CPU loops you control, call `cede()` about once per ms.
 
 # Direct-style Scala
 
-* in Tapir, use `.handle` / `.handleSecurity` / `.handleSuccess` to wire
-  endpoint logic — NEVER use `.serverLogic` / `.serverSecurityLogic`. The
-  `.handle` family is the direct-style API. The `.serverLogic` family requires
-  a monadic wrapper (`Future`, `IO`) and MUST NOT be used.
+* in Tapir, wire logic with `.handle` / `.handleSecurity` / `.handleSuccess` —
+  NEVER `.serverLogic*` (it needs an effect wrapper).
 * ALWAYS use Ox for threading, channels, and async coordination. Avoid raw
   `Thread.ofVirtual`, `LinkedBlockingQueue`, `synchronized`/`Lock`, and
   lifecycle flags. Use `java.util.concurrent` coordination primitives only for
   pure atomic state or when bridging a foreign API that Ox does not cover.
-* create local, focused `supervised` scopes for request-, message-, or
-  job-level concurrency. Accept a parent `(using Ox)` only when a fork or
-  resource must be tied to that parent scope's lifetime.
-* keep constructors plain; use factories that take `(using Ox)` and return
-  values that do not carry the capability. If the factory only registers
-  resources and starts no forks, take the narrower `(using ResourceScope)`;
-  for scoped cleanup with no enclosing scope and no concurrency, use
-  `resourceScope` instead of `supervised`.
-* decide the owning scope BEFORE writing concurrent code. Model a stream reader
-  or worker as a fork in a `supervised` scope whose lifetime matches the work;
-  its result is the fork's **return value** (`fork{…}.join()`), not a value
-  published through a shared `AtomicReference`. NEVER return an object that owns
-  running forks/threads to be driven later — its lifetime escapes every scope,
-  making cancellation and cleanup manual again. Pass a consumer into the scope
-  instead of handing a live handle out.
+* prefer local `supervised` scopes per request/job; take `(using Ox)` only when
+  a fork or resource must live as long as the caller's scope.
+* keep constructors plain. If a factory only registers resources (no forks),
+  take `(using ResourceScope)`; for cleanup without concurrency use
+  `resourceScope`, not `supervised`.
+* decide the owning scope before writing concurrent code; a worker's result is
+  its fork's return value. NEVER return an object that owns running forks to be
+  driven later — pass a consumer into the scope instead.
 * a fork blocked reading a subprocess pipe, stdin, a file, or any other
   classic `java.io` stream is NOT ended by scope cancellation — without the
   right teardown shape, shutdown deadlocks. BEFORE writing code that drives a
@@ -134,10 +108,9 @@ def findUser(id: Id[User])(using DbTx): Either[Fail, User] =
   invocation onto a single thread — the actor is what makes the field safe to hold
   (see [Concurrency and Inter-Thread Communication](150-shared-state-across-threads.md)).
   Use only immutable collections (`Map`, `Set`, `List`) — never `mutable.Map`,
-  `mutable.Set`, `mutable.Buffer`.
-* model state as an immutable case class. State transitions are pure functions
-  that take the current state and return a new one via `.copy()`. Confine the
-  `var` that threads state to the smallest possible scope:
+  `mutable.Set`, `mutable.Buffer` (mutable collections are fine in test fakes).
+* model state as an immutable case class; transitions are pure
+  `state => state` functions; confine the `var` to the smallest scope:
 
 ```scala
 case class ProcessingState(
@@ -155,13 +128,8 @@ def run(items: Iterator[Item]): ProcessingState =
   state
 ```
 
-* push side effects behind traits so that state transitions are testable without
-  real infrastructure. Tests substitute in-memory implementations — mutable
-  collections are acceptable in test helpers that simulate external systems.
-* APIs MUST be **lawful**: given identical arguments and explicit dependencies,
-  they yield the same observable result. Do not hide dependencies like `Clock`,
-  `Random`, or `UUID` inside methods — pass them explicitly or capture them in
-  the class constructor:
+* APIs MUST be lawful: pass `Clock`, `Random`, and UUID generation explicitly
+  (parameter or constructor) — never call them inside methods:
 
 ```scala
 // Wrong — hidden non-determinism:
@@ -184,9 +152,9 @@ class OrderService(clock: Clock, idGenerator: () => UUID):
   identifiers (`OrderId`, `ProductCode`), quantities (`Quantity`, `Amount`), and
   configuration values (`Port`, `TopicName`). When a generated library (e.g.
   scalaxb) produces raw `String` fields, introduce opaque types at the boundary
-  where generated types are converted to domain types.
-* eliminate boolean blindness — replace `Boolean` parameters and return values
-  with two-case enums so intent is explicit and exhaustiveness is checked:
+  where generated types are converted to domain types; enforce invariants with
+  smart constructors returning `Either` (not `require`).
+* replace `Boolean` parameters and return values with two-case enums:
 
 ```scala
 // Wrong — caller must remember what `true` means:
@@ -197,42 +165,12 @@ enum FlushOutcome:
   case Success, Failure
 def recordFlush(outcome: FlushOutcome, duration: Duration): Unit
 ```
-* NEVER throw exceptions for recoverable failures. Instead, return an `Either[E, T]`.
-  Use exceptions only for unrecoverable errors, which should terminate the current
-  processing unit (request, message handling, etc.)
-* if a value can be absent, use `Option[T]` — NEVER use `null` or sentinel
-  values. `Option` is for presence/absence only, not for errors.
-* model different states of an entity as separate types — NEVER use `Option`
-  fields to represent state transitions:
 
-```scala
-// Wrong — callers must remember to check confirmedAt:
-case class Order(id: Id[Order], items: List[Item], confirmedAt: Option[Instant])
-
-// Right — the type tells you what state the order is in:
-case class PendingOrder(id: Id[Order], items: List[Item])
-case class ConfirmedOrder(id: Id[Order], items: List[Item], confirmedAt: Instant)
-```
-
-* design domain models so that invalid data CANNOT be constructed. Use enums,
-  opaque types, or smart constructors to encode invariants:
-
-```scala
-// Wrong — any string is accepted:
-def setPort(port: Int): Unit
-
-// Right — invalid values are rejected at construction:
-opaque type Port = Int
-object Port:
-  def apply(value: Int): Either[String, Port] =
-    if value >= 1 && value <= 65535 then Right(value)
-    else Left(s"Port out of range: $value")
-```
-
+* recoverable failures: return `Either[E, T]` — never throw, `require`, or bare
+  `try`/`catch`. Exceptions only for unrecoverable errors that end the current
+  request/message.
 * define sealed-trait or enum error hierarchies — NEVER use stringly-typed
   errors.
-* NEVER use bare `try`/`catch` for recoverable failures. Reserve `try`/`catch` for
-  defect or unrecoverable error boundaries only.
 
 # Use-Case Guide
 
