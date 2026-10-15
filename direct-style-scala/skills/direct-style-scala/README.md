@@ -7,6 +7,4 @@ structured concurrency, and synchronous
 
 ## Prerequisites
 
-This skill assumes the
-[Metals MCP](https://softwaremill.com/a-beginners-guide-to-using-scala-metals-with-its-model-context-protocol-server/)
-server is available and uses [sbt](https://www.scala-sbt.org) as the build tool.
+This skill assumes [sbt 2](https://www.scala-sbt.org/2.x/docs/) as the build tool.
