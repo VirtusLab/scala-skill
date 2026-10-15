@@ -97,8 +97,7 @@ Worked examples: [Domain Modeling](180-domain-modeling.md).
 * recoverable failures: return `Either[E, T]` — never throw, `require`, or bare
   `try`/`catch`. Exceptions only for unrecoverable errors that end the current
   request/message.
-* define sealed-trait or enum error hierarchies — NEVER use stringly-typed
-  errors.
+* define typed error hierarchies — NEVER use stringly-typed errors.
 
 # Use-Case Guide
 

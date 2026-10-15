@@ -368,10 +368,12 @@ def loadBoth(userId: UserId, accountId: AccountId): (User, Account) =
 > be driven by the caller afterwards — its lifetime then matches no scope, so
 > cancellation, error propagation, and cleanup become manual flags and
 > `try`/`finally` ladders, exactly the bookkeeping structured concurrency
-> removes. Keep the work inside the scope and return a plain value; if the
-> caller must interleave with the work (send input, react to events), pass a
-> *consumer* into the scope (`run(...)(use: Handle => T)`) rather than handing
-> a live handle out of it.
+> removes. Starting the forks in the caller's scope (`using Ox`, as in
+> `Worker.start` above) is fine: that scope owns them. Otherwise, keep the
+> work inside the scope and return a plain value; if the caller must
+> interleave with the work (send input, react to events), pass a *consumer*
+> into the scope (`run(...)(use: Handle => T)`) rather than handing a live
+> handle out of it.
 
 ## Choosing the right pattern
 
