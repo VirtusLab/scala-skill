@@ -5,33 +5,25 @@ description: Scala coding style, tooling, and functional programming guidance, w
 
 # Scala tooling
 
-* ALWAYS use tools to compile and run tests instead of relying on bash commands
-* after adding a dependency to `build.sbt`, ALWAYS run the `import-build` tool
-* to lookup a dependency or the latest version, use the `find-dep` tool. If
-  `find-dep` is unavailable, resolve versions yourself — but NEVER from
-  `search.maven.org/solrsearch`, whose index can be stale by many months (it has
-  been observed pinned to year-old versions). Use these instead:
-  * latest version of a KNOWN artifact — read the canonical resolver source,
-    `https://repo1.maven.org/maven2/<group-with-slashes>/<artifact>/maven-metadata.xml`,
-    and take `<release>` (or the last `<version>`). `<release>` may itself be a
-    prerelease (e.g. scalatest's was `3.3.0-SNAP4`, Scala 3's `3.9.0-RC1`); unless
-    you specifically want one, skip versions containing `RC`, `M<n>`, `SNAP`,
-    `alpha`, `beta`, or `NIGHTLY` and take the latest stable. Remember the Scala
-    suffix, e.g. `com/softwaremill/ox/core_3`. This is never stale.
-  * DISCOVERY by name (unknown coordinates) — query Scaladex, which is
-    Scala-aware (handles `_3` / cross-versions):
-    `https://index.scala-lang.org/api/autocomplete?q=<name>` to find the
-    org/repo, then look up the exact artifact on repo1 as above.
-* to lookup the API of a class, use the `inspect` tool. To lookup the docs or
-  usages, use the `get-docs` and `get-usages` tools
-* to compile the project, use `compile-full`, `compile-module` tools
-* to search for symbols, use `glob-search` and `typed-glob-search` tools
-* if you do need to use `sbt`, use `sbt --client` instead of `sbt` to connect to
-  a running sbt server for faster execution
-* to verify that the app starts use `sbt run`, WITHOUT `--client`, as it
-  prevents interrupting the process
-* before committing, ALWAYS format all changed Scala files using the sbt
-  `scalafmt` plugin: `sbt --client scalafmtAll`
+* Drive the build with sbt commands. Projects use sbt 2, which differs from sbt 1:
+  * `sbt` connects to a background server by default; don't add `--client`. The
+    server keeps the environment of its first start; `sbt shutdown` to reset it.
+  * multiple commands must be one quoted argument: `sbt "clean ; compile ; test"`
+  * `test` only runs failed, new or affected tests; `testFull` runs all
+  * `sbt run` starts the app in a separate JVM; killing sbt doesn't stop it, kill
+    that JVM. `unknown event: sbt/clientJob` means the sbt runner is too old.
+  * `build.sbt` is Scala 3: no postfix calls, slash syntax only (`Test / compile`).
+    Bare settings apply to all subprojects (no `ThisBuild /`). Tasks are cached:
+    wrap side-effecting custom tasks in `Def.uncached`.
+  * outputs are in `target/out/jvm/scala-<version>/<project>/`
+* resolve dependency versions from
+  `https://repo1.maven.org/maven2/<group-with-slashes>/<artifact>/maven-metadata.xml`,
+  including the suffix (`com/softwaremill/ox/core_3`; sbt plugins:
+  `_sbt2_3`). Take the latest stable `<version>`; `<release>` may be a prerelease
+  (`RC`, `M<n>`, `SNAP`, `alpha`, `beta`, `NIGHTLY`). NEVER use
+  `search.maven.org/solrsearch` (stale by months). Find unknown coordinates via
+  `https://index.scala-lang.org/api/autocomplete?q=<name>`.
+* before committing, ALWAYS run `sbt scalafmtAll`
 * the project MUST compile with zero warnings. Ensure `build.sbt` includes
   `-Wunused:all`, `-Wvalue-discard`, `-Wnonunit-statement` in `scalacOptions`.
   Fix warnings in code; only use `@nowarn` for generated code or unfixable
