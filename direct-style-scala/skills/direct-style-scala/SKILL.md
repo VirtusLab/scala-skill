@@ -89,10 +89,12 @@ Worked examples: [Domain Modeling](180-domain-modeling.md).
   `state => state` functions; confine the `var` to the smallest scope.
 * APIs MUST be lawful: pass `Clock`, `Random`, and UUID generation explicitly
   (parameter or constructor) — never call them inside methods.
+* use type-safe domain modelling: design types so invalid data CANNOT be
+  constructed — enums, ADTs, opaque types, `Option` for absence (never
+  `null`), smart constructors returning `Either` (not `require`)
 * wrap `String`, `Int`, `Long`, and `Boolean` domain values in opaque types or
   enums — NEVER use raw primitives for domain concepts (identifiers,
-  quantities, configuration values). Enforce invariants with smart constructors
-  returning `Either` (not `require`).
+  quantities, configuration values).
 * replace `Boolean` parameters and return values with two-case enums.
 * recoverable failures: return `Either[E, T]` — never throw, `require`, or bare
   `try`/`catch`. Exceptions only for unrecoverable errors that end the current
