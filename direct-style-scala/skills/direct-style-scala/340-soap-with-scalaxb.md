@@ -40,6 +40,10 @@ The generated package also exports a `defaultScope` — an XML `NamespaceBinding
 that maps prefixes to the target namespace. You'll need it when serialising
 back to XML with `scalaxb.toXML`.
 
+Generated case classes use raw `String` fields. Introduce opaque types (see
+[Domain Modeling](180-domain-modeling.md)) at the boundary where generated types
+are converted to domain types.
+
 ## SOAP envelope handling
 
 SOAP 1.1 wraps payloads in

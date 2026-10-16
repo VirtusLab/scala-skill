@@ -22,6 +22,9 @@ val allEndpoints: List[ServerEndpoint[Any, Identity]] =
   List(registerUserServerEndpoint /* , ... */)
 ```
 
+> **Important:** Wire logic with `.handle` / `.handleSecurity` /
+> `.handleSuccess` — never `.serverLogic*`, which needs an effect wrapper.
+
 `Identity` is also the effect type parameterising the interceptors and
 static-file helpers below (`CORSInterceptor.default[Identity]`) and the test stub
 backend (see [Testing HTTP Endpoints](500-testing-http-endpoints.md)).

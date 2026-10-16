@@ -34,14 +34,9 @@ def runAndCollect(command: Seq[String]): Summary =
     finally process.destroyForcibly().discard // see the next section
 ```
 
-> **Warning:** Never return an object that owns running forks or threads, to
-> be driven by the caller afterwards — its lifetime then matches no scope, so
-> cancellation, error propagation, and cleanup become manual flags and
-> `try`/`finally` ladders, exactly the bookkeeping structured concurrency
-> removes. Keep the work inside the scope and return a plain value; if the
-> caller must interleave with the work (send input, react to events), pass a
-> *consumer* into the scope (`run(...)(use: Handle => T)`) rather than handing
-> a live handle out of it.
+Don't return the process or reader as a live handle for the caller to drive;
+if the caller must interact with it, pass a consumer into the scope (see
+[Scope propagation](150-shared-state-across-threads.md#scope-propagation)).
 
 ## Teardown: a pipe read is not interruptible — destroy before the join
 

@@ -83,11 +83,11 @@ addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "<latest>")
 ## project/build.properties
 
 ```
-sbt.version=2.0.10
+sbt.version=<latest>
 ```
 
 Pins the sbt version so every contributor and CI run uses the same tool. Use the
-latest stable 2.x release.
+latest stable sbt 2.x release.
 
 ## .scalafmt.conf
 
