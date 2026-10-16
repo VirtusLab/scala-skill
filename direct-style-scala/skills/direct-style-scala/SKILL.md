@@ -139,13 +139,15 @@ class OrderService(clock: Clock, idGenerator: () => UUID):
     Confirmation(id, now)
 ```
 
+* use type-safe domain modelling: design types so invalid data CANNOT be
+  constructed — enums, ADTs, opaque types, `Option` for absence (never
+  `null`), smart constructors returning `Either` (not `require`)
 * wrap `String`, `Int`, `Long`, and `Boolean` domain values in opaque types or
   enums — NEVER use raw primitives for domain concepts. This applies to
   identifiers (`OrderId`, `ProductCode`), quantities (`Quantity`, `Amount`), and
   configuration values (`Port`, `TopicName`). When a generated library (e.g.
   scalaxb) produces raw `String` fields, introduce opaque types at the boundary
-  where generated types are converted to domain types; enforce invariants with
-  smart constructors returning `Either` (not `require`).
+  where generated types are converted to domain types.
 * replace `Boolean` parameters and return values with two-case enums:
 
 ```scala
